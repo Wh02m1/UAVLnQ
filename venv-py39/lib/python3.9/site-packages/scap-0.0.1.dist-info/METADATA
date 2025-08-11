@@ -1,0 +1,22 @@
+Metadata-Version: 2.1
+Name: scap
+Version: 0.0.1
+Summary: Package for scap server.
+Home-page: https://github.com/stacknix/scap
+Author: Ashish Sahu
+Author-email: spiraldeveloper@gmail.com
+License: MIT
+Keywords: python package atom
+Platform: UNKNOWN
+Classifier: Programming Language :: Python :: 3
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Operating System :: OS Independent
+Description-Content-Type: text/markdown
+License-File: LICENSE
+Requires-Dist: gunicorn (==20.0.4)
+Requires-Dist: Jinja2 (==2.11.2)
+Requires-Dist: requests (==2.26.0)
+Requires-Dist: click (==7.1.2)
+
+Scap is lite web server, primarily created for fast development.
+
