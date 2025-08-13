@@ -3,7 +3,7 @@ from datetime import datetime
 import threading
 import time
 from dronekit import Vehicle
-
+# log physical data of the drone
 class DataLogger:
     """Records drone telemetry to CSV files"""
     def __init__(self, vehicle: Vehicle, drone_id: int):
