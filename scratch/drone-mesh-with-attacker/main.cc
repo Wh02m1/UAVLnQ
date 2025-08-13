@@ -492,6 +492,16 @@ int main(int argc, char *argv[]) {
     std::vector<uint16_t> ports = {5550, 5551, 5552, 20000};
     InstallPacketSinks(drones, ports, simTime);
 
+    // Schedule mission commands from Drone0 to other drones (drones 1 and 2)
+    Simulator::Schedule(Seconds(20.0), &SendWaypointPairFromDrone0, 0);
+    Simulator::Schedule(Seconds(30.0), &SendWaypointPairFromDrone0, 1);
+    Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);
+
+    
+    // These are commented-out attack schedules. 
+    // To simulate an attack, remove the comment markers and adjust the desired attack type and simulation time as needed.
+    
+//----------------------------------------------------------------------------------
     // Schedule force disarm attack at seconds 20.0
     //Simulator::Schedule(Seconds(20.0), &ExecuteForceDisarmAttack, attackerSocket);
  
@@ -505,11 +515,6 @@ int main(int argc, char *argv[]) {
     //Simulator::Schedule(Seconds(150.0), &ExecuteGpsSpoofingAttack, attackerSocket);
 
 
-    // Schedule mission commands from Drone0 to other drones (drones 1 and 2)
-    Simulator::Schedule(Seconds(20.0), &SendWaypointPairFromDrone0, 0);
-    Simulator::Schedule(Seconds(30.0), &SendWaypointPairFromDrone0, 1);
-    Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);
-
     // Schedule mission commands injection from Attacker to other drones (drones 1 and 2)
     //Simulator::Schedule(Seconds(80.0), &SendWaypointPairFromAttacker, 0);
     //Simulator::Schedule(Seconds(81.0), &SendWaypointPairFromAttacker, 1);
@@ -517,8 +522,8 @@ int main(int argc, char *argv[]) {
     //Simulator::Schedule(Seconds(83.0), &SendWaypointPairFromAttacker, 3);
     //Simulator::Schedule(Seconds(84.0), &SendWaypointPairFromAttacker, 4);
     //Simulator::Schedule(Seconds(85.0), &SendWaypointPairFromAttacker, 5);
-   // Simulator::Schedule(Seconds(86.0), &SendWaypointPairFromAttacker, 6);
-
+    // Simulator::Schedule(Seconds(86.0), &SendWaypointPairFromAttacker, 6);
+//---------------------------------------------------------------------------------------
 
     // Setup output files
     auto t = std::time(nullptr);
