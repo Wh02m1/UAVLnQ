@@ -1,8 +1,4 @@
 /*
-================================================================================
-DroneZmqMeshNetwork Simulation - ns-3
-================================================================================
-
 ARCHITECTURE OVERVIEW:
 ---------------------
 - Simulates a mesh network of drones and an attacker node.
