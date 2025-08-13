@@ -493,16 +493,16 @@ int main(int argc, char *argv[]) {
     InstallPacketSinks(drones, ports, simTime);
 
     // Schedule force disarm attack at seconds 20.0
-    Simulator::Schedule(Seconds(20.0), &ExecuteForceDisarmAttack, attackerSocket);
+    //Simulator::Schedule(Seconds(20.0), &ExecuteForceDisarmAttack, attackerSocket);
  
     // Schedule flight termination attack at seconds 50.0
-    Simulator::Schedule(Seconds(50.0), &ExecuteFlightTerminationAttack, attackerSocket);
+    //Simulator::Schedule(Seconds(50.0), &ExecuteFlightTerminationAttack, attackerSocket);
 
     // Schedule Force Return Home attack at seconds 100.0
-    Simulator::Schedule(Seconds(100.0), &ExecuteForceRTLAttack, attackerSocket);
+    //Simulator::Schedule(Seconds(100.0), &ExecuteForceRTLAttack, attackerSocket);
 
     // Schedule GPS spoofing attack every 0.2 seconds starting at second 150.0
-    Simulator::Schedule(Seconds(150.0), &ExecuteGpsSpoofingAttack, attackerSocket);
+    //Simulator::Schedule(Seconds(150.0), &ExecuteGpsSpoofingAttack, attackerSocket);
 
 
     // Schedule mission commands from Drone0 to other drones (drones 1 and 2)
@@ -511,13 +511,13 @@ int main(int argc, char *argv[]) {
     Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);
 
     // Schedule mission commands injection from Attacker to other drones (drones 1 and 2)
-    Simulator::Schedule(Seconds(80.0), &SendWaypointPairFromAttacker, 0);
-    Simulator::Schedule(Seconds(81.0), &SendWaypointPairFromAttacker, 1);
-    Simulator::Schedule(Seconds(82.0), &SendWaypointPairFromAttacker, 2);
-    Simulator::Schedule(Seconds(83.0), &SendWaypointPairFromAttacker, 3);
-    Simulator::Schedule(Seconds(84.0), &SendWaypointPairFromAttacker, 4);
-    Simulator::Schedule(Seconds(85.0), &SendWaypointPairFromAttacker, 5);
-    Simulator::Schedule(Seconds(86.0), &SendWaypointPairFromAttacker, 6);
+    //Simulator::Schedule(Seconds(80.0), &SendWaypointPairFromAttacker, 0);
+    //Simulator::Schedule(Seconds(81.0), &SendWaypointPairFromAttacker, 1);
+    //Simulator::Schedule(Seconds(82.0), &SendWaypointPairFromAttacker, 2);
+    //Simulator::Schedule(Seconds(83.0), &SendWaypointPairFromAttacker, 3);
+    //Simulator::Schedule(Seconds(84.0), &SendWaypointPairFromAttacker, 4);
+    //Simulator::Schedule(Seconds(85.0), &SendWaypointPairFromAttacker, 5);
+   // Simulator::Schedule(Seconds(86.0), &SendWaypointPairFromAttacker, 6);
 
 
     // Setup output files
