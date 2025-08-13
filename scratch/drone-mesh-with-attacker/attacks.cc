@@ -346,4 +346,3 @@ void SendWaypointPairFromAttacker(int pairIndex) {
     NS_LOG_INFO("Attacker sent " << (pairIndex+1) << " waypoint pairs to drones at " << Simulator::Now().GetSeconds() << "s");
 }
 //
-// (Do not alter code or comments; just move them here.)
