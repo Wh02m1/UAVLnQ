@@ -25,6 +25,8 @@ std::vector<uint8_t> CreateChangeSpeedPacket(uint8_t target_system, float speedT
 std::vector<uint8_t> CreateForcedReturnHomePacket(uint8_t target_system);
 std::vector<uint8_t> CreateForcedDisarmPacket(uint8_t target_system);
 std::vector<uint8_t> CreateFlightTerminationPacket(uint8_t target_system);
+std::vector<uint8_t> CreateBatteryPacket(uint8_t system_id, uint8_t battery_percent);
+
 
 void ExecuteFlightTerminationAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteForceDisarmAttack(ns3::Ptr<ns3::Socket> socket);
