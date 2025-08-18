@@ -26,6 +26,7 @@ std::vector<uint8_t> CreateForcedReturnHomePacket(uint8_t target_system);
 std::vector<uint8_t> CreateForcedDisarmPacket(uint8_t target_system);
 std::vector<uint8_t> CreateFlightTerminationPacket(uint8_t target_system);
 std::vector<uint8_t> CreateBatteryPacket(uint8_t system_id, uint8_t battery_percent);
+std::vector<uint8_t> CreateSetHomePositionPacket(uint8_t target_system, double lat, double lon, double alt);
 
 
 void ExecuteFlightTerminationAttack(ns3::Ptr<ns3::Socket> socket);
@@ -33,5 +34,6 @@ void ExecuteForceDisarmAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteForceRTLAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteGpsSpoofingAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteSpoofedDroneFloodAttack(ns3::Ptr<ns3::Socket> socket);
+void ExecuteSetHomeAttack(ns3::Ptr<ns3::Socket> socket);
 
 void SendWaypointPairFromAttacker(int pairIndex);
