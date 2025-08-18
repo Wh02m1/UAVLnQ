@@ -305,9 +305,17 @@ void InstallPacketSinks(NodeContainer nodes, std::vector<uint16_t> ports, double
             ApplicationContainer sinkApp = sink.Install(nodes.Get(i));
             sinkApp.Start(Seconds(0.0));
             sinkApp.Stop(Seconds(simTime));
+
+            Ptr<PacketSink> ps = sinkApp.Get(0)->GetObject<PacketSink>();
+            Callback<void, std::string, Ptr<const Packet>, const Address&> cb =
+                [i](std::string /*context*/, Ptr<const Packet> p, const Address& addr) {
+                    PacketReceived(p, addr, i);
+                };
+            ps->TraceConnect("Rx", "Drone" + std::to_string(i), cb);
         }
     }
 }
+
 
 int main(int argc, char *argv[]) {
     uint32_t numDrones = 3;
