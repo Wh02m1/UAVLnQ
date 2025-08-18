@@ -32,5 +32,6 @@ void ExecuteFlightTerminationAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteForceDisarmAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteForceRTLAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteGpsSpoofingAttack(ns3::Ptr<ns3::Socket> socket);
+void ExecuteSpoofedDroneFloodAttack(ns3::Ptr<ns3::Socket> socket);
 
 void SendWaypointPairFromAttacker(int pairIndex);
