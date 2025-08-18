@@ -1,3 +1,48 @@
+/*
+================================================================================
+Drone Mesh Network Simulation with MAVLink/ZMQ Integration - ns-3
+================================================================================
+
+ARCHITECTURE:
+------------
+Network Topology:
+   - 3 Drones in WiFi ad-hoc mesh (802.11a)
+   - IP Range: 10.1.1.0/24
+     * Drone0: 10.1.1.1
+     * Drone1: 10.1.1.2
+     * Drone2: 10.1.1.3
+
+Communication Protocols:
+   - MAVLink over UDP for drone commands
+   - ZMQ for external communication
+   - WiFi ad-hoc (802.11a) for physical layer
+
+Port Mapping:
+   ┌─────────────┬─────────────┬──────────────────────────────┐
+   │   Node      │   Port      │          Purpose             │
+   ├─────────────┼─────────────┼──────────────────────────────┤
+   │ Drone1      │ 5551/UDP    │ MAVLink command reception    │
+   │ Drone2      │ 5552/UDP    │ MAVLink command reception    │
+   │ All Drones  │ 20000/UDP   │ GPS position sharing         │
+   │ External    │ 5555/TCP    │ ZMQ command publishing       │
+   │ External    │ 5556/TCP    │ ZMQ position updates         │
+   └─────────────┴─────────────┴──────────────────────────────┘
+
+Node Relationships:
+        ---------------------------------------
+        |                                      |
+   +----⬇-----+       +----------+       +-----⬇----+
+   |  Drone0  |◀─────▶|  Drone1  |◀─────▶|  Drone2  |
+   | (10.1.1.1|       | (10.1.1.2|       | (10.1.1.3|
+   +----------+       +----------+       +----------+
+                                   
+
+
+- Mission Control: Drone0 sends waypoints to other drones
+- Position Sharing: Drones broadcast GPS updates via UDP
+================================================================================
+*/
+
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/mobility-module.h"
