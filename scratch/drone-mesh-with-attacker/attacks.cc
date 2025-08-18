@@ -103,6 +103,35 @@ std::vector<uint8_t> CreateFakeGpsPacket(uint8_t droneId, double lat, double lon
     return std::vector<uint8_t>(buffer, buffer + len);
 }
 
+// Creates GPS packets for non-existent drones
+std::vector<uint8_t> CreateSpoofedDroneGpsPacket(uint8_t spoofedSystemId) {
+    mavlink_message_t msg;
+    uint8_t component_id = 0;
+    
+    // Random position within 1km of reference point
+    double lat = s_refLat + ((rand() % 2000 - 1000) / 100000.0); 
+    double lon = s_refLon + ((rand() % 2000 - 1000) / 100000.0);
+    double alt = 30 + (rand() % 100);
+    
+    mavlink_gps_raw_int_t gps = {};
+    gps.fix_type = 3;
+    gps.lat = static_cast<int32_t>(lat * 1e7);
+    gps.lon = static_cast<int32_t>(lon * 1e7);
+    gps.alt = static_cast<int32_t>(alt * 1000);
+    gps.eph = 150;
+    gps.epv = 200;
+    gps.vel = 500 + (rand() % 1000);  // Random speed
+    gps.cog = rand() % 36000;         // Random course
+    gps.satellites_visible = 10 + (rand() % 6);
+
+    mavlink_msg_gps_raw_int_encode(spoofedSystemId, component_id, &msg, &gps);
+    
+    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+    uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
+    return std::vector<uint8_t>(buffer, buffer + len);
+}
+
+
 // Create a change speed command_long packet that will be used by attacker to change the speed of drones and make it move slower or faster
 std::vector<uint8_t> CreateChangeSpeedPacket(uint8_t target_system, float speedType, float speed) {
     mavlink_message_t msg;
@@ -385,23 +414,63 @@ void ExecuteForceRTLAttack(Ptr<Socket> socket) {
 }
 
 // Execute GPS spoofing attack
+/**
+Every drone receives spoofed positions for all other drones
+Packets appear to come from legitimate drones (via spoofed system_id)
+ */
+// This attack is in the network layer and will not be forwarded to zmq and parsed by the mavlink parser
+// It will be sent directly to the drones via UDP sockets
 void ExecuteGpsSpoofingAttack(Ptr<Socket> socket) {
-    // Spoof position 1km away from real location
-    const double spoofOffset = 0.01;  // ~1.1km at equator
-    double fakeLat = s_refLat + spoofOffset;
-    double fakeLon = s_refLon + spoofOffset;
-    double fakeAlt = 100;  // meters
+    double fakeLat = 50;
+    double fakeLon = 50;
+    double fakeAlt = 50;
 
-    for (uint8_t droneId = 1; droneId <= 2; droneId++) {
-        std::vector<uint8_t> fakeGps = CreateFakeGpsPacket(droneId, fakeLat, fakeLon, fakeAlt);
+    // Spoof positions for ALL drones (0,1,2)
+    for (uint8_t spoofedDroneId = 0; spoofedDroneId <= 2; spoofedDroneId++) {
+        // Create fake GPS for this drone
+        std::vector<uint8_t> fakeGps = CreateFakeGpsPacket(
+            spoofedDroneId + 1,  // system_id: drone0=1, drone1=2, drone2=3
+            fakeLat, fakeLon, fakeAlt
+        );
         Ptr<Packet> packet = Create<Packet>(fakeGps.data(), fakeGps.size());
-        socket->SendTo(packet, 0, InetSocketAddress(droneIpAddresses[droneId], 20000));
+        
+        // Send to ALL drones EXCEPT the spoofed drone itself
+        for (uint32_t targetDroneIdx = 0; targetDroneIdx < 3; targetDroneIdx++) {
+            if (targetDroneIdx == spoofedDroneId) continue; // Skip spoofed drone
+            
+            socket->SendTo(
+                packet, 
+                0, 
+                InetSocketAddress(droneIpAddresses[targetDroneIdx], 20000)
+            );
+        }
     }
     
-    NS_LOG_INFO("Attacker sent fake GPS data at " << Simulator::Now().GetSeconds() << "s");
-    
-    // Schedule continuous spoofing
+    NS_LOG_INFO("Attacker sent network-wide fake GPS at " << Simulator::Now().GetSeconds() << "s");
     Simulator::Schedule(Seconds(0.2), &ExecuteGpsSpoofingAttack, socket);
+}
+
+// Attack execution function
+void ExecuteSpoofedDroneFloodAttack(ns3::Ptr<ns3::Socket> socket) {
+    // Target all real drones (0,1,2)
+    for (uint32_t i = 0; i < droneIpAddresses.size(); i++) {
+        // Create fake drones (system IDs 4-10)
+        for (uint8_t spoofedId = 4; spoofedId <= 10; spoofedId++) {
+            std::vector<uint8_t> fakeGps = CreateSpoofedDroneGpsPacket(spoofedId);
+            Ptr<Packet> packet = Create<Packet>(fakeGps.data(), fakeGps.size());
+            
+            // Send to drone's GPS port (20000)
+            socket->SendTo(packet, 0, InetSocketAddress(droneIpAddresses[i], 20000));
+        }
+    }
+    
+    NS_LOG_INFO("Attacker flooded network with 7 spoofed drone positions at " 
+                << Simulator::Now().GetSeconds() << "s");
+    
+    // Schedule next flood (every 0.2 seconds)
+    if (Simulator::Now().GetSeconds() < 180.0) {
+        Simulator::Schedule(Seconds(0.2), &ExecuteSpoofedDroneFloodAttack, socket);
+    }
 }
 
 // - SendWaypointPairFromAttacker
