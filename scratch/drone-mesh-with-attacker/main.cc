@@ -77,7 +77,7 @@ SIMULATION FLOW:
 #include <cmath>
 #include <algorithm>
 
-#include "attacks.h"
+#include "Attacks/attacks.h"
 
 using namespace ns3;
 
@@ -413,7 +413,7 @@ int main(int argc, char *argv[]) {
     // Attacker position at (26, 4, 580)
     MobilityHelper mobilityStatic;
     Ptr<ListPositionAllocator> staticPositionAlloc = CreateObject<ListPositionAllocator>();
-    staticPositionAlloc->Add(Vector(26, 4, 580));
+    staticPositionAlloc->Add(Vector(100, 100, 0));
     mobilityStatic.SetPositionAllocator(staticPositionAlloc);
     mobilityStatic.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobilityStatic.Install(Attacker);
@@ -446,8 +446,8 @@ int main(int argc, char *argv[]) {
     wifiChannel.AddPropagationLoss("ns3::LogDistancePropagationLossModel", "Exponent", DoubleValue(2.0));
     wifiPhy.SetChannel(wifiChannel.Create());
     // Increase transmit power for longer range
-    wifiPhy.Set("TxPowerStart", DoubleValue(30.0)); // 30 dBm = 1 Watt
-    wifiPhy.Set("TxPowerEnd", DoubleValue(30.0));
+    wifiPhy.Set("TxPowerStart", DoubleValue(40.0)); // 40 dBm = 1 Watt
+    wifiPhy.Set("TxPowerEnd", DoubleValue(40.0));
 
     WifiMacHelper wifiMac;
     wifi.SetRemoteStationManager("ns3::AarfWifiManager");
@@ -519,8 +519,12 @@ int main(int argc, char *argv[]) {
     //Simulator::Schedule(Seconds(85.0), &SendWaypointPairFromAttacker, 5);
     // Simulator::Schedule(Seconds(86.0), &SendWaypointPairFromAttacker, 6);
 
-    // Schedule Spoofed Drone Flood Attack at second 100.0
-    // Simulator::Schedule(Seconds(100.0), &ExecuteSpoofedDroneFloodAttack, attackerSocket);
+    // Schedule Spoofed Drone Flood Attack at second 50.0
+    //Simulator::Schedule(Seconds(50.0), &ExecuteSpoofedDroneFloodAttack, attackerSocket);
+
+
+    // Schedule Set Home Position Attack at second 50.0
+    Simulator::Schedule(Seconds(50.0), &ExecuteSetHomeAttack, attackerSocket);
 
 
     // Setup output files
