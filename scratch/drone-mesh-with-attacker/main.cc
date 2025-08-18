@@ -1,57 +1,54 @@
 /*
 ================================================================================
-DroneZmqMeshNetwork Simulation - ns-3
+Drone Mesh Network Simulation with MAVLink/ZMQ Integration - ns-3
 ================================================================================
 
-ARCHITECTURE OVERVIEW:
----------------------
-- Simulates a mesh network of drones and an attacker node.
-- Drones communicate via WiFi ad-hoc (802.11a), exchange MAVLink messages (GPS INT, flight termination command).
-- Attacker sends flight termination commands to drones after 50 sec of the simulation.
-- ZMQ is used to publish commands and receive position updates for the drones.
+ARCHITECTURE:
+------------
+Network Topology:
+   - 3 Drones + 1 Attacker in WiFi ad-hoc mesh (802.11a)
+   - IP Range: 10.1.1.0/24
+     * Drone0: 10.1.1.1
+     * Drone1: 10.1.1.2
+     * Drone2: 10.1.1.3
+     * Attacker: 10.1.1.4
+
+Communication Protocols:
+   - MAVLink over UDP for drone commands
+   - ZMQ for external communication
+   - WiFi ad-hoc (802.11a) for physical layer
+
+Port Mapping:
+   ┌─────────────┬─────────────┬──────────────────────────────┐
+   │   Node      │   Port      │          Purpose             │
+   ├─────────────┼─────────────┼──────────────────────────────┤
+   │ Attacker    │ 5550/UDP    │ Command injection port       │
+   │ Drone1      │ 5551/UDP    │ MAVLink command reception    │
+   │ Drone2      │ 5552/UDP    │ MAVLink command reception    │
+   │ All Drones  │ 20000/UDP   │ GPS position sharing         │
+   │ External    │ 5555/TCP    │ ZMQ command publishing       │
+   │ External    │ 5556/TCP    │ ZMQ position updates         │
+   └─────────────┴─────────────┴──────────────────────────────┘
+
+Node Relationships:
+   +----------+       +----------+       +----------+
+   |  Drone0  |◀─────▶|  Drone1  |◀─────▶|  Drone2  |
+   | (10.1.1.1|       | (10.1.1.2|       | (10.1.1.3|
+   +----------+       +----▲-----+       +----▲-----+
+                           │                  │
+                           └------------------┘                  
+                                     │                           
+                               +-----▼-------+            
+                               |   Attacker  |             
+                               |  (10.1.1.4) |            
+                               +-------------+             
 
 
-IP & PORT FLOW:
----------------
-- IPs assigned from 10.1.1.0/24 subnet.
-- Each drone gets a unique IP (10.1.1.1 , 10.1.1.2 , 10.1.1.3).
-- Attacker gets an IP in the same drones subnet (10.1.1.4).
-
-- UDP ports:
-    - 5550: Attacker's main port.
-    - 5551: Drone 1 MAVLink port.
-    - 5552: Drone 2 MAVLink port.
-    - 20000: GPS forwarding port (drone-to-drone GPS updates).
-
-
-FUNCTIONS:
-----------
-- CreateMavlinkMissionPacket: Creates a MAVLink mission item packet for a target drone.
-- CreateFlightTerminationPacket: Creates a MAVLink flight termination command for a target drone.
-- SendWaypointPairFromDrone0: Drone 0 sends waypoints to drones 1 and 2, also publishes to ZMQ.
-- ExecuteFlightTerminationAttack: Attacker sends flight termination to drones 1 and 2, schedules repeated attacks.
-- ProcessMavlinkMessage: Parses MAVLink GPS messages, updates drone positions, forwards GPS to other drones.
-- ZmqPositionReceiverThread: Receives position updates from ZMQ, pushes to positionQueue.
-- UpdatePositionsFromQueue: Periodically processes positionQueue, updates drone positions.
-- PrintDronePositions: Logs drone positions to stdout every second.
-- PacketReceived: Called when a drone receives a packet; parses MAVLink, logs GPS, and if flight termination is received, publishes to ZMQ.
-- InstallPacketSinks: Installs UDP packet sinks on drones for all relevant ports, connects PacketReceived callback.
-
-SIMULATION FLOW:
-----------------
-- main():
-    - Parses command line args (simTime, refLat, refLon, refAlt).
-    - Sets up ZMQ publisher.
-    - Creates nodes, sets positions, installs WiFi and Internet stack.
-    - Assigns IPs, creates sockets, installs packet sinks.
-    - Schedules attacks and waypoint commands.
-    - Sets up NetAnim visualization.
-    - Starts ZMQ position receiver thread.
-    - Schedules position updates and logging.
-    - Runs simulation, cleans up.
+- Mission Control: Drone0 sends waypoints to other drones
+- Position Sharing: Drones broadcast GPS updates via UDP
+- Attack Simulation: Attacker injects malicious commands
 ================================================================================
 */
-
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/mobility-module.h"
@@ -300,66 +297,6 @@ void PrintDronePositions(NodeContainer nodes, double interval, double simTime) {
     Simulator::Schedule(Seconds(interval), &PrintDronePositions, nodes, interval, simTime);
 }
 
-
-
-// This function is called whenever a drone receives a packet on any of its UDP ports.
-// It parses the packet to check if it contains a MAVLink message, and if so, logs GPS data and detects flight termination commands.
-// this ensures flight termination commands are only sent to ZMQ port 5555 if received to a drone 
-void PacketReceived(Ptr<const Packet> p, const Address& addr, uint32_t droneId) {
-    // Convert the sender's address to an IPv4 address and port for logging
-    InetSocketAddress inetAddr = InetSocketAddress::ConvertFrom(addr);
-    NS_LOG_INFO("Drone " << droneId << " received " << p->GetSize() 
-                << "B packet from " << inetAddr.GetIpv4() << ":" << inetAddr.GetPort());
-    
-    // Copy the packet data into a buffer for MAVLink parsing
-    uint8_t buffer[256];
-    uint32_t bytesToCopy = std::min(p->GetSize(), static_cast<uint32_t>(256));
-    p->CopyData(buffer, bytesToCopy);
-    
-    // Initialize MAVLink parser state and message
-    mavlink_message_t msg;
-    mavlink_status_t status;
-    // Flag to indicate if a flight termination command was found
-    bool isFlightTermination = false;
-    // Will hold the raw bytes of the flight termination command for ZMQ publishing
-    std::vector<uint8_t> flightTermMsg;
-    // Parse each byte in the buffer as part of a MAVLink message
-    for (uint32_t i = 0; i < bytesToCopy; i++) {
-        if (mavlink_parse_char(MAVLINK_COMM_0, buffer[i], &msg, &status)) {
-            // If the message is a GPS_RAW_INT, decode and log the GPS data
-            if (msg.msgid == MAVLINK_MSG_ID_GPS_RAW_INT) {
-                mavlink_gps_raw_int_t gps;
-                mavlink_msg_gps_raw_int_decode(&msg, &gps);
-                NS_LOG_INFO("MAVLink GPS_RAW_INT: lat=" << gps.lat/1e7 
-                            << " lon=" << gps.lon/1e7 << " alt=" << gps.alt/1000.0);
-            }
-            // If the message is a COMMAND_LONG, check if it is a flight termination command
-            if (msg.msgid == MAVLINK_MSG_ID_COMMAND_LONG) {
-                mavlink_command_long_t cmd;
-                mavlink_msg_command_long_decode(&msg, &cmd);
-                // MAV_CMD_DO_FLIGHTTERMINATION (command 185) with param1 == 1.0 means flight termination
-                if (cmd.command == MAV_CMD_DO_FLIGHTTERMINATION && cmd.param1 == 1.0) {
-                    isFlightTermination = true;
-                    // Re-encode the command to get the raw MAVLink bytes for ZMQ publishing that will be parsed later and forwarded to the destination drones
-                    uint8_t sysid = msg.sysid;      // System ID of sender
-                    uint8_t compid = msg.compid;    // Component ID of sender
-                    mavlink_message_t outMsg;
-                    mavlink_msg_command_long_encode(sysid, compid, &outMsg, &cmd);
-                    uint8_t outBuf[MAVLINK_MAX_PACKET_LEN];
-                    uint16_t outLen = mavlink_msg_to_send_buffer(outBuf, &outMsg);
-                    flightTermMsg.assign(outBuf, outBuf + outLen);
-                }
-            }
-        }
-    }
-    // If a flight termination command was detected, publish it to ZMQ port 5555
-    if (isFlightTermination && g_commandPublisher && !flightTermMsg.empty()) {
-        zmq::message_t zmqMsg(flightTermMsg.data(), flightTermMsg.size());
-        g_commandPublisher->send(zmqMsg, zmq::send_flags::none);
-        NS_LOG_INFO("Published flight termination to ZMQ 5555 (on Rx)");
-    }
-}
-
 void InstallPacketSinks(NodeContainer nodes, std::vector<uint16_t> ports, double simTime) {
     for (uint32_t i = 0; i < nodes.GetN(); ++i) {
         for (uint16_t port : ports) {
@@ -368,13 +305,6 @@ void InstallPacketSinks(NodeContainer nodes, std::vector<uint16_t> ports, double
             ApplicationContainer sinkApp = sink.Install(nodes.Get(i));
             sinkApp.Start(Seconds(0.0));
             sinkApp.Stop(Seconds(simTime));
-
-            Ptr<PacketSink> ps = sinkApp.Get(0)->GetObject<PacketSink>();
-            Callback<void, std::string, Ptr<const Packet>, const Address&> cb =
-                [i](std::string /*context*/, Ptr<const Packet> p, const Address& addr) {
-                    PacketReceived(p, addr, i);
-                };
-            ps->TraceConnect("Rx", "Drone" + std::to_string(i), cb);
         }
     }
 }
@@ -410,7 +340,7 @@ int main(int argc, char *argv[]) {
     Attacker.Create(1);
 
 
-    // Attacker position at (26, 4, 580)
+    // Attacker position at (100, 100, 0)
     MobilityHelper mobilityStatic;
     Ptr<ListPositionAllocator> staticPositionAlloc = CreateObject<ListPositionAllocator>();
     staticPositionAlloc->Add(Vector(100, 100, 0));
@@ -517,7 +447,7 @@ int main(int argc, char *argv[]) {
     //Simulator::Schedule(Seconds(83.0), &SendWaypointPairFromAttacker, 3);
     //Simulator::Schedule(Seconds(84.0), &SendWaypointPairFromAttacker, 4);
     //Simulator::Schedule(Seconds(85.0), &SendWaypointPairFromAttacker, 5);
-    // Simulator::Schedule(Seconds(86.0), &SendWaypointPairFromAttacker, 6);
+    //Simulator::Schedule(Seconds(86.0), &SendWaypointPairFromAttacker, 6);
 
     // Schedule Spoofed Drone Flood Attack at second 50.0
     //Simulator::Schedule(Seconds(50.0), &ExecuteSpoofedDroneFloodAttack, attackerSocket);
