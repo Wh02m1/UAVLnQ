@@ -20,16 +20,16 @@ position_publisher.bind("tcp://*:5556")
 
 # Connection IP and port for each drone running in Ardupilot for DroneKit
 CONNECTION_STRINGS_Dronekit = [
-    'udp:127.0.0.1:14550',   # Drone 1
-    'udp:127.0.0.1:14560',   # Drone 2
-    'udp:127.0.0.1:14570'    # Drone 3
+    'udp:127.0.0.1:14551',   # Drone 1
+    'udp:127.0.0.1:14561',   # Drone 2
+    'udp:127.0.0.1:14571'    # Drone 3
 ]
 
 # Connection IP and port for each drone running in Ardupilot to forward Mavlink packets (GPS_RAW_INT)
 CONNECTION_STRINGS_Mavlink = [
-    'udp:127.0.0.1:14551',   # Drone 1
-    'udp:127.0.0.1:14561',   # Drone 2
-    'udp:127.0.0.1:14571'    # Drone 3
+    'udp:127.0.0.1:14552',   # Drone 1
+    'udp:127.0.0.1:14562',   # Drone 2
+    'udp:127.0.0.1:14572'    # Drone 3
 ]
 
 # Connect to drones via MAVLink
@@ -226,7 +226,7 @@ class DroneCommander:
         print("Starting NS-3 simulation in xterm...")
         self.ns3_process = subprocess.Popen([
             'xterm','-hold','-e',
-            '/home/boda/Desktop/ns-3-dev/ns3','run','NS3-Network.cc' # change this to for different NS3 simulation scripts
+            '/home/boda/Desktop/ns-3-dev/ns3','run','scratch/drone-mesh/drone_mesh'    # drone-mesh/drone_mesh for NS-3 script
         ])
         print(f"NS-3 PID {self.ns3_process.pid}")
 
@@ -259,10 +259,10 @@ class DroneCommander:
                                     pass
                         last_size = size
 
-                # If no command popped for 30s, queue RTL+LAND
+                # If no command popped for 60s, queue RTL+LAND
                 now = time.time()
                 last_pop = controller.last_command_pop_time
-                if last_pop is not None and not timeout_triggered and (now - last_pop) > 30:
+                if last_pop is not None and not timeout_triggered and (now - last_pop) > 60:
                     controller.add_command(ReturnHome(controller.vehicle))
                     controller.add_command(Land(controller.vehicle))
                     timeout_triggered = True
