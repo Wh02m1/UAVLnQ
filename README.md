@@ -8,6 +8,66 @@ Overall system architecture with Attacker Sending malformed mavlink packets:
 
 ![Architecture with Attacker](images/Architecture_with_attacker.jpg)
 
+# Simulated Drone Attacks (NS-3 + MAVLink)
+
+### 1. Malicious Waypoint Injection ( hijack mission routes)
+**Function:** `CreateMavlinkMissionPacket`  
+- Injects fake `MISSION_ITEM` messages into a drone.  
+- Forces the drone to fly to unintended locations or become isolated.
+
+---
+
+### 2. False Data Injection (GPS Spoofing – Single Drone)
+**Function:** `CreateFakeGpsPacket`  
+- Sends fake `GPS_RAW_INT` packets for a legitimate drone ID.  
+- Spoofs drone’s position, altitude, and velocity.
+
+---
+
+### 3. False Data Injection (Ghost Drones)
+**Function:** `CreateSpoofedDroneGpsPacket`  
+- Generates fake GPS signals for **non-existent drones** (IDs 4–10).  
+- Creates “phantom” UAVs in the swarm, confusing the network.
+  
+---
+
+### 4. Speed Manipulation Attack
+**Function:** `CreateChangeSpeedPacket`  
+- Injects `COMMAND_LONG` packets with `MAV_CMD_DO_CHANGE_SPEED`.  
+- Forces drones to fly slower/faster, disrupting mission timing.
+
+---
+
+### 5. Forced Return-to-Launch (RTL)
+**Function:** `CreateForcedReturnHomePacket`  
+- Sends a `SET_MODE` MAVLink packet to force drones into **RTL mode**.  
+- Causes premature mission abortion and retreat to home.
+
+---
+
+### 6. Forced Disarm
+**Function:** `CreateForcedDisarmPacket`  
+- Sends `MAV_CMD_COMPONENT_ARM_DISARM` with the *force disarm magic number*.  
+- Immediately disarms motors mid-flight.
+
+---
+
+### 7. Flight Termination
+**Function:** `CreateFlightTerminationPacket`  
+- Sends `MAV_CMD_DO_FLIGHTTERMINATION`.  
+- Causes drones to immediately cut off motors.  
+
+---
+
+### 8. Home Position Hijack
+**Function:** `CreateSetHomePositionPacket`  
+- Maliciously sets a drone’s **home location** near the attacker.  
+- On RTL, drones return to attacker’s position.
+
+---
+
+# Installation
+
 # Setup
 ### Drone 1
 ```bash
@@ -31,3 +91,5 @@ Overall system architecture with Attacker Sending malformed mavlink packets:
 --out=udp:127.0.0.1:14572 \
 --out=udp:127.0.0.1:14573
 ```
+
+
