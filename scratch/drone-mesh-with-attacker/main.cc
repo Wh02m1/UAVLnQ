@@ -31,9 +31,7 @@ Port Mapping:
    └─────────────┴─────────────┴──────────────────────────────┘
 
 Node Relationships:
-        ---------------------------------------
-        |                                      |
-   +----⬇-----+       +----------+       +-----⬇----+
+   +----------+       +----------+       +----------+
    |  Drone0  |◀─────▶|  Drone1  |◀─────▶|  Drone2  |
    | (10.1.1.1|       | (10.1.1.2|       | (10.1.1.3|
    +----------+       +----▲-----+       +----▲-----+
@@ -166,21 +164,24 @@ void SendWaypointPairFromDrone0(int pairIndex) {
     }
 }
 
-// Process binary MAVLink GPS_RAW_INT messages that will reveived from ZMQ 
-// ZMQ message is a vector of (drone ID + MAVLink GPS_RAW_INT message bytes)
+// Process binary MAVLink GPS_RAW_INT and SYS_STATUS messages that will received from ZMQ 
+// ZMQ message format: [message_type (1 byte), drone_id (1 byte), MAVLink message bytes]
+// Message types: 0 = GPS_RAW_INT, 1 = SYS_STATUS
 void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
-    if (data.size() < 1) return; // Need at least drone ID
+    if (data.size() < 2) return; // Need at least message type and drone ID
     
-    // First byte is drone ID (0 or 1 or 2)
-    uint8_t droneId = data[0];
+    // First byte is message type (0 for GPS, 1 for system status)
+    uint8_t msg_type = data[0];
+    // Second byte is drone ID (0 or 1 or 2)
+    uint8_t droneId = data[1];
     
-    // Parse MAVLink message from the remaining bytes (starting from index 1, since index 0 is drone ID)
+    // Parse MAVLink message from the remaining bytes (starting from index 2)
     mavlink_message_t msg;
-    for (size_t i = 1; i < data.size(); i++) {
+    for (size_t i = 2; i < data.size(); i++) {
         // Parse each byte as part of a MAVLink message
         if (mavlink_parse_char(MAVLINK_COMM_0, data[i], &msg, &mavlink_status)) {
             // If the message is a GPS_RAW_INT (contains GPS data)
-            if (msg.msgid == MAVLINK_MSG_ID_GPS_RAW_INT) {
+            if (msg_type == 0 && msg.msgid == MAVLINK_MSG_ID_GPS_RAW_INT) {
                 mavlink_gps_raw_int_t gps;
                 // Decode the GPS_RAW_INT message to extract GPS fields
                 mavlink_msg_gps_raw_int_decode(&msg, &gps);
@@ -200,40 +201,54 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
                     // Set the drone's position in the simulation
                     droneMobilityModels[droneId]->SetPosition(Vector(x, y, z));
                     
-                    // Log the updated position for debugging/analysis
+                    // Log the updated position 
                     NS_LOG_INFO("Drone " << static_cast<int>(droneId) 
                                 << " RAW GPS: lat=" << lat << " lon=" << lon << " alt=" << alt
                                 << " → x=" << x << " y=" << y << " z=" << z);
-                    
-                    // Forward the GPS packet to all other drones (except itself)
-                    for (uint32_t j = 0; j < drones.GetN(); j++) {
-                        if (j != droneId) {
-                            // Create a packet containing only the MAVLink message (excluding drone ID)
-                            Ptr<Packet> packet = Create<Packet>(data.data() + 1, data.size() - 1);
-                            // Send the GPS packet to the other drone's GPS port (20000)
-                            g_droneSockets[droneId]->SendTo(packet, 0, 
-                                InetSocketAddress(droneIpAddresses[j], 20000));
-                            
-                            // Log the forwarding event
-                            NS_LOG_INFO("Drone " << static_cast<int>(droneId) 
-                                        << " forwarded GPS packet to Drone " << j);
-                        }
-                        /**
-                        For example, if Drone 0 receives a MAVLink GPS_RAW_INT message:
-                        - Drone 1 extracts its own ID (0) from the message.
-                        - It decodes the GPS data (latitude, longitude, altitude).
-                        - It converts the GPS coordinates to local XYZ coordinates.
-                        - It updates its own position in the simulation.
-                        - It sends this GPS_RAW_INT packet to the other drone’s IP address on port 20000 (the GPS forwarding port).
-                        This ensures that every drone knows the position of every other drone
-                        */
-                    }
                 }
+            }
+            // If the message is a SYS_STATUS (contains system status data)
+            else if (msg_type == 1 && msg.msgid == MAVLINK_MSG_ID_SYS_STATUS) {
+                mavlink_sys_status_t sys_status;
+                // Decode the SYS_STATUS message to extract system status fields
+                mavlink_msg_sys_status_decode(&msg, &sys_status);
+                
+                // Log the system status 
+                NS_LOG_INFO("Drone " << static_cast<int>(droneId) 
+                            << " SYS_STATUS: battery_voltage=" << sys_status.voltage_battery
+                            << " battery_remaining=" << sys_status.battery_remaining
+                            << " comms_drop_rate=" << sys_status.drop_rate_comm);
+            }
+            
+            // Forward the MAVLink packet to all other drones (except itself) on port 20000
+            // We forward only the raw MAVLink message (without message type and drone ID)
+            for (uint32_t j = 0; j < drones.GetN(); j++) {
+                if (j != droneId) {
+                    // Create a packet containing only the MAVLink message (excluding message type and drone ID)
+                    Ptr<Packet> packet = Create<Packet>(data.data() + 2, data.size() - 2);
+                    // Send the packet to the other drone's port 20000
+                    g_droneSockets[droneId]->SendTo(packet, 0, 
+                        InetSocketAddress(droneIpAddresses[j], 20000));
+                    
+                    // Log the forwarding event
+                    NS_LOG_INFO("Drone " << static_cast<int>(droneId) 
+                                << " forwarded MAVLink packet (type=" << static_cast<int>(msg_type)
+                                << ") to Drone " << j);
+                }
+               
+                /**
+                For example, if Drone 0 receives a MAVLink GPS_RAW_INT or SYS_STATUS message:
+                - Drone extracts the message type (0 for GPS, 1 for system status) and its own ID from the message.
+                - It decodes the message data (GPS coordinates or system status information).
+                    - For GPS messages, it updates its own position in the simulation using the coordinates.
+                    - For system status messages, it logs battery voltage, remaining percentage, and communication drop rate.
+                - It sends the MAVLink packet (without the message type and drone ID prefix) to the other drone's IP address on port 20000.
+                This ensures that every drone knows both the position and system status of every other drone
+                */
             }
         }
     }
 }
-
 // Modified ZMQ receiver to handle binary data
 void ZmqPositionReceiverThread() {
     // Create a new ZMQ context for this thread
@@ -307,17 +322,9 @@ void InstallPacketSinks(NodeContainer nodes, std::vector<uint16_t> ports, double
             ApplicationContainer sinkApp = sink.Install(nodes.Get(i));
             sinkApp.Start(Seconds(0.0));
             sinkApp.Stop(Seconds(simTime));
-
-            Ptr<PacketSink> ps = sinkApp.Get(0)->GetObject<PacketSink>();
-            Callback<void, std::string, Ptr<const Packet>, const Address&> cb =
-                [i](std::string /*context*/, Ptr<const Packet> p, const Address& addr) {
-                    PacketReceived(p, addr, i);
-                };
-            ps->TraceConnect("Rx", "Drone" + std::to_string(i), cb);
         }
     }
 }
-
 
 int main(int argc, char *argv[]) {
     uint32_t numDrones = 3;
@@ -436,7 +443,7 @@ int main(int argc, char *argv[]) {
     //Simulator::Schedule(Seconds(20.0), &ExecuteForceDisarmAttack, attackerSocket);
  
     // Schedule flight termination attack at seconds 50.0
-    //Simulator::Schedule(Seconds(50.0), &ExecuteFlightTerminationAttack, attackerSocket);
+    //Simulator::Schedule(Seconds(100.0), &ExecuteFlightTerminationAttack, attackerSocket);
 
     // Schedule Force Return Home attack at seconds 100.0
     //Simulator::Schedule(Seconds(100.0), &ExecuteForceRTLAttack, attackerSocket);
@@ -464,7 +471,7 @@ int main(int argc, char *argv[]) {
 
 
     // Schedule Set Home Position Attack at second 50.0
-    Simulator::Schedule(Seconds(50.0), &ExecuteSetHomeAttack, attackerSocket);
+    //Simulator::Schedule(Seconds(50.0), &ExecuteSetHomeAttack, attackerSocket);
 
 
     // Setup output files
