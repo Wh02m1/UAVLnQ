@@ -180,50 +180,87 @@ void SendWaypointPairFromDrone0(int pairIndex) {
     }
 }
 
-// Process binary MAVLink messages
+// Process binary MAVLink GPS_RAW_INT and SYS_STATUS messages that will received from ZMQ 
+// ZMQ message format: [message_type (1 byte), drone_id (1 byte), MAVLink message bytes]
+// Message types: 0 = GPS_RAW_INT, 1 = SYS_STATUS
 void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
-    if (data.size() < 1) return; // Need at least drone ID
+    if (data.size() < 2) return; // Need at least message type and drone ID
     
-    // First byte is drone ID
-    uint8_t droneId = data[0];
+    // First byte is message type (0 for GPS, 1 for system status)
+    uint8_t msg_type = data[0];
+    // Second byte is drone ID (0 or 1 or 2)
+    uint8_t droneId = data[1];
     
-    // Parse MAVLink message from the remaining bytes
+    // Parse MAVLink message from the remaining bytes (starting from index 2)
     mavlink_message_t msg;
-    for (size_t i = 1; i < data.size(); i++) {
+    for (size_t i = 2; i < data.size(); i++) {
+        // Parse each byte as part of a MAVLink message
         if (mavlink_parse_char(MAVLINK_COMM_0, data[i], &msg, &mavlink_status)) {
-            if (msg.msgid == MAVLINK_MSG_ID_GPS_RAW_INT) {
+            // If the message is a GPS_RAW_INT (contains GPS data)
+            if (msg_type == 0 && msg.msgid == MAVLINK_MSG_ID_GPS_RAW_INT) {
                 mavlink_gps_raw_int_t gps;
+                // Decode the GPS_RAW_INT message to extract GPS fields
                 mavlink_msg_gps_raw_int_decode(&msg, &gps);
                 
-                // Convert to degrees and meters
-                double lat = gps.lat / 1e7;
-                double lon = gps.lon / 1e7;
-                double alt = gps.alt / 1000.0;
+                // Convert MAVLink GPS fields to degrees/meters
+                double lat = gps.lat / 1e7;      // Latitude in degrees
+                double lon = gps.lon / 1e7;      // Longitude in degrees
+                double alt = gps.alt / 1000.0;   // Altitude in meters
                 
+                // If the droneId is valid, update its position in the simulation
                 if (droneId < droneMobilityModels.size()) {
-                    // Convert to local XYZ coordinates
+                    // Convert GPS coordinates to local simulation XYZ coordinates
                     double x = (lon - s_refLon) * s_metersPerDegreeLon;
                     double y = (lat - s_refLat) * s_metersPerDegreeLat;
                     double z = alt - s_refAlt;
                     
+                    // Set the drone's position in the simulation
                     droneMobilityModels[droneId]->SetPosition(Vector(x, y, z));
                     
+                    // Log the updated position 
                     NS_LOG_INFO("Drone " << static_cast<int>(droneId) 
                                 << " RAW GPS: lat=" << lat << " lon=" << lon << " alt=" << alt
                                 << " → x=" << x << " y=" << y << " z=" << z);
-                                
-                    // Forward GPS packet to other drones (without drone ID)
-                    for (uint32_t j = 0; j < drones.GetN(); j++) {
-                        if (j != droneId) {
-                            Ptr<Packet> packet = Create<Packet>(data.data() + 1, data.size() - 1);
-                            g_droneSockets[droneId]->SendTo(packet, 0, 
-                                InetSocketAddress(droneIpAddresses[j], 20000));
-                            
-                            NS_LOG_INFO("Drone " << static_cast<int>(droneId) 
-                                        << " forwarded GPS packet to Drone " << j);
-                        }
-                    }
                 }
+            }
+            // If the message is a SYS_STATUS (contains system status data)
+            else if (msg_type == 1 && msg.msgid == MAVLINK_MSG_ID_SYS_STATUS) {
+                mavlink_sys_status_t sys_status;
+                // Decode the SYS_STATUS message to extract system status fields
+                mavlink_msg_sys_status_decode(&msg, &sys_status);
+                
+                // Log the system status 
+                NS_LOG_INFO("Drone " << static_cast<int>(droneId) 
+                            << " SYS_STATUS: battery_voltage=" << sys_status.voltage_battery
+                            << " battery_remaining=" << sys_status.battery_remaining
+                            << " comms_drop_rate=" << sys_status.drop_rate_comm);
+            }
+            
+            // Forward the MAVLink packet to all other drones (except itself) on port 20000
+            // We forward only the raw MAVLink message (without message type and drone ID)
+            for (uint32_t j = 0; j < drones.GetN(); j++) {
+                if (j != droneId) {
+                    // Create a packet containing only the MAVLink message (excluding message type and drone ID)
+                    Ptr<Packet> packet = Create<Packet>(data.data() + 2, data.size() - 2);
+                    // Send the packet to the other drone's port 20000
+                    g_droneSockets[droneId]->SendTo(packet, 0, 
+                        InetSocketAddress(droneIpAddresses[j], 20000));
+                    
+                    // Log the forwarding event
+                    NS_LOG_INFO("Drone " << static_cast<int>(droneId) 
+                                << " forwarded MAVLink packet (type=" << static_cast<int>(msg_type)
+                                << ") to Drone " << j);
+                }
+               
+                /**
+                For example, if Drone 0 receives a MAVLink GPS_RAW_INT or SYS_STATUS message:
+                - Drone extracts the message type (0 for GPS, 1 for system status) and its own ID from the message.
+                - It decodes the message data (GPS coordinates or system status information).
+                    - For GPS messages, it updates its own position in the simulation using the coordinates.
+                    - For system status messages, it logs battery voltage, remaining percentage, and communication drop rate.
+                - It sends the MAVLink packet (without the message type and drone ID prefix) to the other drone's IP address on port 20000.
+                This ensures that every drone knows both the position and system status of every other drone
+                */
             }
         }
     }
