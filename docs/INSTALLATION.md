@@ -37,10 +37,10 @@ git clone https://github.com/Wh02m1/UAVSwarmAttackSim.git
 cd UAVSwarmAttackSim
 ```
 
-## 2. Move NS3 Network Simulation Scripts
+## 2. Copy NS3 Network Simulation Scripts
 
 ```bash
-mv scratch/*  ../ns-3-dev-git/scratch
+cp scratch/*  ../ns-3-dev-git/scratch
 ```
 ## 3. Build NS3 Network Simulation Scripts
 
