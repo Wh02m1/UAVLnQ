@@ -46,6 +46,7 @@ cp -r scratch/*  ../ns-3-dev-git/scratch
 
 ```bash
 cd ../ns-3-dev-git
+./ns3 configure
 ./ns3 build
 ```
 
