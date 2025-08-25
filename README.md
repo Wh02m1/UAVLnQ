@@ -2,11 +2,11 @@
 
 Overall system architecture Without Attacker:
 
-![Architecture](images/Architecture.png)
+![Architecture](docs/Architecture.png)
 
 Overall system architecture with Attacker Sending malformed mavlink packets:
 
-![Architecture with Attacker](images/Architecture_with_attacker.png)
+![Architecture with Attacker](docs/Architecture_with_attacker.png)
 
 # Simulated Drone Attacks (NS-3 + MAVLink)
 
