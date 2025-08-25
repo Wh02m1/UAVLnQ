@@ -40,7 +40,7 @@ cd UAVSwarmAttackSim
 ## 2. Copy NS3 Network Simulation Scripts
 
 ```bash
-cp scratch/*  ../ns-3-dev-git/scratch
+cp -r scratch/*  ../ns-3-dev-git/scratch
 ```
 ## 3. Build NS3 Network Simulation Scripts
 
