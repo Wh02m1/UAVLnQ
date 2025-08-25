@@ -41,7 +41,7 @@ git clone https://github.com/Wh02m1/UAVSwarmAttackSim.git
 ```bash
 mv  UAVSwarmAttackSim/scratch/*  ns-3-dev-git/scratch
 ```
-## 3. Build NS3 Drone Network Script 
+## 3. Build NS3 Network Simulation Scripts
 
 ```bash
 cd ../ns-3-dev-git
