@@ -37,26 +37,48 @@ git clone https://github.com/Wh02m1/UAVSwarmAttackSim.git
 ## 2. Moving NS3 Script
 
 ```bash
-mv  UAVSwarmAttackSim/scratch/* ns-3-dev-git/scratch
+mv  UAVSwarmAttackSim/scratch/*  ns-3-dev-git/scratch
 ```
-## 3. Create a Virtual Environment
-
-Create a virtual environment with **Python 3.9** to ensure compatibility with the `dronekit` library:
-
-```bash
-python3.9 -m venv drone_env
-source drone_env/bin/activate
-```
-## 4. install requiremts
-```
-pip install --upgrade pip
-pip install dronekit pymavlink pyzmq
-```
-## 5. Build NS3 Drone Network Script 
+## 3. Build NS3 Drone Network Script 
 
 ```bash
 cd ../ns-3-dev-git
 ./ns3 build
+```
+
+## 4. Create a Virtual Environment
+
+Create a virtual environment with **Python 3.9** to ensure compatibility with the `dronekit` library:
+
+```bash
+cd ../UAVSwarmAttackSim
+python3.9 -m venv drone_env
+source drone_env/bin/activate
+```
+## 5. install requiremts
+```
+pip install --upgrade pip
+pip install dronekit pymavlink pyzmq
+```
+---
+# QGroundControl Setup
+
+To visualize and control your UAVs, you can install **QGroundControl**.
+
+## 1. Download QGroundControl
+
+Download the AppImage for Linux:  
+
+- [QGroundControl x86_64 AppImage](https://docs.qgroundcontrol.com/en/getting_started/download_and_install.html)
+
+## 2. Make the AppImage Executable
+
+```bash
+chmod +x QGroundControl-<arch>.AppImage
+```
+## 3. Run QGroundControl
+```bash
+./QGroundControl-<arch>.AppImage
 ```
 
 
