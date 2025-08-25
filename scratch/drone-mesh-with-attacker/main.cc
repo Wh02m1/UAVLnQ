@@ -22,10 +22,10 @@ Port Mapping:
    ┌─────────────┬─────────────┬──────────────────────────────┐
    │   Node      │   Port      │          Purpose             │
    ├─────────────┼─────────────┼──────────────────────────────┤
-   │ Attacker    │ 5550/UDP    │ Command injection port       │
    │ Drone1      │ 5551/UDP    │ MAVLink command reception    │
    │ Drone2      │ 5552/UDP    │ MAVLink command reception    │
-   │ All Drones  │ 20000/UDP   │ GPS position sharing         │
+   │ All Drones  │ 20000/UDP   │ GPS position sharing ,       |
+   |             |             |  drone sys status            │
    │ External    │ 5555/TCP    │ ZMQ command publishing       │
    │ External    │ 5556/TCP    │ ZMQ position updates         │
    └─────────────┴─────────────┴──────────────────────────────┘
