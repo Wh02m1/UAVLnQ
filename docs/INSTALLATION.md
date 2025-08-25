@@ -34,12 +34,13 @@ git clone https://github.com/mavlink/c_library_v2
 ```bash
 cd ../
 git clone https://github.com/Wh02m1/UAVSwarmAttackSim.git
+cd UAVSwarmAttackSim
 ```
 
 ## 2. Move NS3 Network Simulation Scripts
 
 ```bash
-mv  UAVSwarmAttackSim/scratch/*  ns-3-dev-git/scratch
+mv scratch/*  ../ns-3-dev-git/scratch
 ```
 ## 3. Build NS3 Network Simulation Scripts
 
