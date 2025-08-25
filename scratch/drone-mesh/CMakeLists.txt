@@ -28,6 +28,8 @@ build_exec(
   EXECUTABLE_DIRECTORY_PATH ${scratch_directory}/
 )
 
-# If Attacks code includes headers here:
-include_directories(${CMAKE_CURRENT_SOURCE_DIR} ${ZMQ_INCLUDE_DIRS}
-  /home/boda/ns-3-dev-git/c_library_v2)
+include_directories(
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${ZMQ_INCLUDE_DIRS}
+  ${PROJECT_SOURCE_DIR}/c_library_v2
+)
