@@ -27,3 +27,22 @@ git clone https://github.com/mavlink/c_library_v2
 
 ```
 ---
+# UAVSwarmAttackSim Setup
+
+## 1. Clone UAVSwarmAttackSim repository
+```bash
+git clone https://github.com/Wh02m1/UAVSwarmAttackSim.git
+```
+
+# 2. Moving NS3 Script
+
+```bash
+mv  UAVSwarmAttackSim/scratch ns-3-dev-git/scratch
+```
+# 3. Create a virtula environemt 
+
+```bash
+cd UAVSwarmAttackSim
+python3 -m venv venv
+source venv/bin/activate
+```
