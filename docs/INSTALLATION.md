@@ -69,7 +69,7 @@ To visualize and control your UAVs, you can install **QGroundControl**.
 
 Download the AppImage for Linux:  
 
-- [QGroundControl x86_64 AppImage](https://docs.qgroundcontrol.com/en/getting_started/download_and_install.html)
+- [QGroundControl x86_64 AppImage]([https://docs.qgroundcontrol.com/en/getting_started/download_and_install.html](https://d176tv9ibo4jno.cloudfront.net/latest/QGroundControl-x86_64.AppImage))
 
 ## 2. Make the AppImage Executable
 
