@@ -37,7 +37,7 @@ git clone https://github.com/Wh02m1/UAVSwarmAttackSim.git
 # 2. Moving NS3 Script
 
 ```bash
-mv  UAVSwarmAttackSim/scratch ns-3-dev-git/scratch
+mv  UAVSwarmAttackSim/scratch/* ns-3-dev-git/scratch
 ```
 # 3. Create a virtula environemt 
 
