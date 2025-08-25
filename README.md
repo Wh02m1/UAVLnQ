@@ -25,7 +25,7 @@ Overall system architecture with Attacker Sending malformed mavlink packets:
 - [Installation Guide](docs/INSTALLATION.md)
 
 # Setup
-launches multiple drones using **ArduCopter SITL** with Gazebo simulation.
+launches multiple drones using **ArduCopter SITL** with Gazebo 3D simulator.
 ### Drone 1
 ```bash
 ./sim_vehicle.py -v ArduCopter -f gazebo-iris -I0 --sysid=1 --model JSON --console \
