@@ -27,6 +27,16 @@ git clone https://github.com/mavlink/c_library_v2
 ./ns3 build
 
 ```
+To run the main ns3 topology without the attacker 
+```bash
+
+./ns3 run scratch/drone-mesh/drone_mesh
+```
+To run the main ns3 topology with the attacker 
+
+```bash
+./ns3 run scratch/drone-mesh-with-attacker/drone_mesh
+```
 ---
 # UAVSwarmAttackSim Setup
 
