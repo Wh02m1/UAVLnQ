@@ -63,7 +63,7 @@ pip install dronekit pymavlink pyzmq
 ---
 # QGroundControl Setup
 
-To visualize and control your UAVs, you can install **QGroundControl**.
+To visualize and control your UAVs install **QGroundControl**.
 
 ## 1. Download QGroundControl
 
