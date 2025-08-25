@@ -19,7 +19,7 @@ cd ns-3-dev-git
 git clone https://github.com/mavlink/c_library_v2
 ```
 
-## 3. Configure and build ns-3
+## 3. Configure and build NS3
 ```bash
 
 ./ns3 configure
