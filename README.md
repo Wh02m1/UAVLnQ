@@ -22,6 +22,7 @@ Overall system architecture with Attacker Sending malformed mavlink packets:
 | 8 | **Home Position Hijack** | `CreateSetHomePositionPacket` | Maliciously sets a drone’s **home location** near the attacker. On RTL, drones return to attacker’s position. |
 
 # Installation
+- [Installation Guide](docs/INSTALLATION.md)
 
 # Setup
 ### Drone 1
