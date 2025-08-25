@@ -1,3 +1,4 @@
+
 In order to run the code in this repository, follow the setup steps in order.
 
 # NS-3 Setup
@@ -31,6 +32,7 @@ git clone https://github.com/mavlink/c_library_v2
 
 ## 1. Clone UAVSwarmAttackSim repository
 ```bash
+cd ../
 git clone https://github.com/Wh02m1/UAVSwarmAttackSim.git
 ```
 
