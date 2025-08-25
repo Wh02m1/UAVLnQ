@@ -42,22 +42,44 @@ for conn_str in CONNECTION_STRINGS_Mavlink:
 
 
 
-def publish_drone_positions(vehicles):
-    """Continuously capture GPS_RAW_INT from each drone and send raw MAVLink packet via ZMQ."""
+def publish_drone_mavlink(vehicles):
+    """
+    Continuously capture GPS_RAW_INT and SYS_STATUS (battery) messages from each drone
+    and send raw MAVLink packets via ZMQ.
+
+    Message format for ZMQ:
+      - First byte: message type (0 = GPS_RAW_INT, 1 = SYS_STATUS)
+      - Second byte: drone index (0, 1, 2 for Drone 1..3)
+      - Remaining bytes: raw MAVLink message bytes
+    """
     while True:
         # Iterate over all MAVLink connections (one per drone)
         for drone_id, master in enumerate(mav_connections):
-            # Try to receive a GPS_RAW_INT message (non-blocking)
-            msg = master.recv_match(type='GPS_RAW_INT', blocking=False)
-            if msg:
+            if master is None:
+                continue
+                
+            # Try to receive GPS_RAW_INT message (non-blocking)
+            gps_msg = master.recv_match(type='GPS_RAW_INT', blocking=False)
+            if gps_msg:
                 # Get the raw MAVLink-encoded byte buffer for the message
-                raw_bytes = msg.get_msgbuf()
-                # Prepend the drone ID as a single byte so receiver can identify which drone sent it
-                payload = bytes([drone_id]) + raw_bytes
+                raw_bytes = gps_msg.get_msgbuf()
+                # Prepend message type (0 for GPS) and drone ID
+                payload = bytes([0, drone_id]) + raw_bytes
                 # Send the payload over ZMQ PUB socket
-                position_publisher.send(payload)      
-
-        # delay to avoid overwhelming CPU
+                position_publisher.send(payload)
+               
+                
+            # Try to receive SYS_STATUS message (SYS_STATUS , non-blocking)
+            SYS_STATUS = master.recv_match(type='SYS_STATUS', blocking=False)
+            if SYS_STATUS:
+                # Get the raw MAVLink-encoded byte buffer for the message
+                raw_bytes = SYS_STATUS.get_msgbuf()
+                # Prepend message type (1 for battery) and drone ID
+                payload = bytes([1, drone_id]) + raw_bytes
+                # Send the payload over ZMQ PUB socket
+                position_publisher.send(payload)
+                
+        # Small delay to avoid overwhelming CPU
         time.sleep(0.05)
 
 
@@ -216,7 +238,7 @@ class DroneCommander:
 
         # Start position publishing thread
         if self.vehicles:
-            t = threading.Thread(target=publish_drone_positions,
+            t = threading.Thread(target=publish_drone_mavlink,
                                  args=(self.vehicles,), daemon=True)
             t.start()
             print("Started drone position publishing thread")
@@ -372,7 +394,7 @@ if __name__ == "__main__":
     commander = DroneCommander()
     try:
         commander.connect_drones()
-        print(">> Waiting 5 s before mission start…")
+        print(">> Waiting 5s before starting mission…")
         time.sleep(5)
         commander.start_missions()
     finally:
