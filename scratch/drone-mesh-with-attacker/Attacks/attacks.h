@@ -39,7 +39,7 @@ void ExecuteSpoofedDroneFloodAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteSetHomeAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteHeartbeatFloodAttack(ns3::Ptr<ns3::Socket> socket);
 
-void ExecuteQGroundControlSpoofingAttack(ns3::Ptr<ns3::Socket> socket);
+void ExecuteSpoofDroneGPSAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteBatteryPercentageSpoofingAttack(ns3::Ptr<ns3::Socket> socket);
 
 void SendWaypointPairFromAttacker(int pairIndex);
