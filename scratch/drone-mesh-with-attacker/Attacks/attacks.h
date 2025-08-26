@@ -36,6 +36,7 @@ void ExecuteForceDisarmAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteForceRTLAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteGpsSpoofingAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteSpoofedDroneFloodAttack(ns3::Ptr<ns3::Socket> socket);
+void ExecuteSpeedManipulationAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteSetHomeAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteHeartbeatFloodAttack(ns3::Ptr<ns3::Socket> socket);
 
