@@ -28,7 +28,7 @@ Each attack creates and injects malicious MAVLink packets into the network to ma
 | 7  | Flight Termination                | `CreateFlightTerminationPacket`     | Sends `MAV_CMD_DO_FLIGHTTERMINATION`. Causes drones to immediately cut off motors. |
 | 8  | Home Position Hijack              | `CreateSetHomePositionPacket`       | Maliciously sets a drone's home location near the attacker. On RTL, drones return to attacker's position. |
 | 9  | Heartbeat Flood DoS               | `CreateHeartbeatPacket`             | Floods the network with MAVLink `HEARTBEAT` messages from multiple spoofed drones (IDs 4–20). Overloads communication and processing. |
-| 10 | QGroundControl Spoofing           | `CreateQgcSpoofPacket`              | Spoofs drone positions in QGroundControl by sending fake `GLOBAL_POSITION_INT` messages. |
+| 10 | Drones Location Spoofing           | `CreateQgcSpoofPacket`              | Spoofs drone positions in QGroundControl by sending fake `GLOBAL_POSITION_INT` messages. |
 | 11 | Battery Status Spoofing           | `CreateSpoofedBatteryStatusPacket`  | Sends fake `BATTERY_STATUS` MAVLink packets to spoof battery percentage and voltage. |
 
 
