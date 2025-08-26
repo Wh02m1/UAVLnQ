@@ -588,15 +588,15 @@ void ExecuteHeartbeatFloodAttack(Ptr<Socket> socket) {
         Simulator::Schedule(Seconds(0.05), &ExecuteHeartbeatFloodAttack, socket);
     }
 }
-// Execute QGroundControl spoofing attack
-void ExecuteQGroundControlSpoofingAttack(Ptr<Socket> socket) {
+// Execute drones location spoofing attack
+void ExecuteSpoofDroneGPSAttack(Ptr<Socket> socket) {
     double Lat = 41.3879;
     double Lon = 2.16992;
     double Alt = 60.0;
 
     // Spoof positions for all drones (system IDs 1, 2, 3) to appear at Barcelona
     for (uint8_t system_id = 1; system_id <= 3; system_id++) {
-        std::vector<uint8_t> spoofPacket = CreateQgcSpoofPacket(system_id, Lat, Lon, Alt);
+        std::vector<uint8_t> spoofPacket = CreateQgcLocationSpoofPacket(system_id, Lat, Lon, Alt);
         
         // Send to ZMQ instead of directly to QGroundControl
         if (g_commandPublisher) {
