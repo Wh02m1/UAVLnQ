@@ -27,6 +27,9 @@ std::vector<uint8_t> CreateFlightTerminationPacket(uint8_t target_system);
 std::vector<uint8_t> CreateSetHomePositionPacket(uint8_t target_system, double lat, double lon, double alt);
 std::vector<uint8_t> CreateHeartbeatPacket(uint8_t system_id);
 
+std::vector<uint8_t> CreateQgcSpoofPacket(uint8_t system_id, double lat, double lon, double alt);
+std::vector<uint8_t> CreateSpoofedBatteryStatusPacket(uint8_t target_system, uint8_t battery_id, uint8_t battery_function, uint8_t battery_type,int16_t temperature, uint16_t voltage, int16_t current_battery, int32_t current_consumed,int32_t energy_consumed, int8_t battery_remaining);
+
 
 void ExecuteFlightTerminationAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteForceDisarmAttack(ns3::Ptr<ns3::Socket> socket);
@@ -35,4 +38,8 @@ void ExecuteGpsSpoofingAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteSpoofedDroneFloodAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteSetHomeAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteHeartbeatFloodAttack(ns3::Ptr<ns3::Socket> socket);
+
+void ExecuteQGroundControlSpoofingAttack(ns3::Ptr<ns3::Socket> socket);
+void ExecuteBatteryPercentageSpoofingAttack(ns3::Ptr<ns3::Socket> socket);
+
 void SendWaypointPairFromAttacker(int pairIndex);
