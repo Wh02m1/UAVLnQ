@@ -458,6 +458,13 @@ int main(int argc, char *argv[]) {
     std::vector<uint16_t> ports = {20000};
     InstallPacketSinks(drones, ports, simTime);
 
+      // Schedule mission commands from Drone0 to other drones (drones 1 and 2)
+      Simulator::Schedule(Seconds(20.0), &SendWaypointPairFromDrone0, 0);
+      Simulator::Schedule(Seconds(30.0), &SendWaypointPairFromDrone0, 1);
+      Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);
+
+//------------------------------------------Attacks Schedule ----------------------------------------------------------------------
+
    // Schedule force disarm attack at seconds 20.0
        //Simulator::Schedule(Seconds(20.0), &ExecuteForceDisarmAttack, attackerSocket);
  
@@ -479,12 +486,10 @@ int main(int argc, char *argv[]) {
 
     //Schedule Drone GPS Location spoofing attack at second 10.0
        //Simulator::Schedule(Seconds(10.0), &ExecuteSpoofDroneGPSAttack, attackerSocket);
+        
+   // Schedule speed manipulation attack at second 30.0
+       //Simulator::Schedule(Seconds(30.0), &ExecuteSpeedManipulationAttack, attackerSocket);
     
-    
-    // Schedule mission commands from Drone0 to other drones (drones 1 and 2)
-      Simulator::Schedule(Seconds(20.0), &SendWaypointPairFromDrone0, 0);
-      Simulator::Schedule(Seconds(30.0), &SendWaypointPairFromDrone0, 1);
-      Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);
 
     //Schedule mission commands injection from Attacker to (drones 1 and 2)
        //Simulator::Schedule(Seconds(80.0), &SendWaypointPairFromAttacker, 0);
@@ -504,6 +509,8 @@ int main(int argc, char *argv[]) {
 
     // Schedule DOS Attack at second 60.0
        //Simulator::Schedule(Seconds(60.0), &ExecuteHeartbeatFloodAttack, attackerSocket);
+   
+//---------------------------------------------------------------------------------------------------------------------------
 
 
 
