@@ -12,7 +12,7 @@ Overall system architecture with Attacker Sending malformed mavlink packets:
 
 | #  | Attack Name                               | Packet Creation Function(s)        | Execution Function(s)                   | Description |
 |----|-------------------------------------------|------------------------------------|------------------------------------------|-------------|
-| 1  | Malicious Waypoint Injection (Hijack Mission Routes) | `CreateMavlinkMissionPacket`       | `SendWaypointPairFromDrone0`, `SendWaypointPairFromAttacker` | Injects fake `MISSION_ITEM` messages into a drone. Forces the drone to fly to unintended locations or become isolated. |
+| 1  | Malicious Waypoint Injection (Hijack Mission Routes) | `CreateMavlinkMissionPacket`       |  `SendWaypointPairFromAttacker` | Injects fake `MISSION_ITEM` messages into a drone. Forces the drone to fly to unintended locations or become isolated. |
 | 2  | False Data Injection (GPS Spoofing – Single Drone) | `CreateFakeGpsPacket`              | `ExecuteGpsSpoofingAttack`               | Sends fake `GPS_RAW_INT` packets for a legitimate drone ID. Spoofs drone's position, altitude, and velocity. |
 | 3  | False Data Injection (Ghost Drones)       | `CreateSpoofedDroneGpsPacket`      | `ExecuteSpoofedDroneFloodAttack`         | Generates fake GPS signals for non-existent drones (IDs 4–10). Creates "phantom" UAVs in the swarm, confusing the network. |
 | 4  | Speed Manipulation Attack                 | `CreateChangeSpeedPacket`          | *(Sent directly via attacker socket)*    | Injects `COMMAND_LONG` packets with `MAV_CMD_DO_CHANGE_SPEED`. Forces drones to fly slower/faster, disrupting mission timing. |
