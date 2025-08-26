@@ -311,6 +311,28 @@ std::vector<uint8_t> CreateSetHomePositionPacket(uint8_t target_system, double l
     return std::vector<uint8_t>(buffer, buffer + len);
 }
 
+// Create a MAVLink heartbeat packet
+std::vector<uint8_t> CreateHeartbeatPacket(uint8_t system_id) {
+    mavlink_message_t msg;
+    uint8_t component_id = 0;  // Typically 0 for autopilot
+
+    mavlink_heartbeat_t heartbeat = {};
+    heartbeat.type = 2;                    // MAV_TYPE_QUADROTOR
+    heartbeat.autopilot = 3;               // MAV_AUTOPILOT_ARDUPILOTMEGA
+    heartbeat.base_mode = 81;              // Armed + stabilize enabled + custom mode enabled
+    heartbeat.custom_mode = 0;             // No custom mode
+    heartbeat.system_status = 3;           // MAV_STATE_STANDBY
+    // Note: mavlink_version is handled by the MAVLink library, not set manually
+
+    mavlink_msg_heartbeat_encode(system_id, component_id, &msg, &heartbeat);
+
+    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+    uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
+    
+    return std::vector<uint8_t>(buffer, buffer + len);
+}
+
+
 //-------------------------------------------------------------------------Execute Attacks Fubctions-----------------------------------------------------
 
 // Function to execute flight termination attack on drones 1 and 2 
@@ -502,6 +524,27 @@ void ExecuteSetHomeAttack(Ptr<Socket> socket) {
     // Schedule next flood (every 1 seconds)
     if (Simulator::Now().GetSeconds() < 180.0) {
         Simulator::Schedule(Seconds(1), &ExecuteSetHomeAttack, socket);
+    }
+}
+
+// Execute heartbeat flood attack with realistic packets
+void ExecuteHeartbeatFloodAttack(Ptr<Socket> socket) {
+    // Create realistic heartbeat packets for multiple spoofed drones
+    for (uint8_t spoofed_id = 4; spoofed_id <= 20; spoofed_id++) {
+        std::vector<uint8_t> heartbeat = CreateHeartbeatPacket(spoofed_id);
+        Ptr<Packet> packet = Create<Packet>(heartbeat.data(), heartbeat.size());
+        
+        // Send to all real drones at a high rate
+        for (uint32_t i = 0; i < droneIpAddresses.size(); i++) {
+            socket->SendTo(packet, 0, InetSocketAddress(droneIpAddresses[i], 20000));
+        }
+    }
+    
+    NS_LOG_INFO("Attacker sent realistic heartbeat flood at " << Simulator::Now().GetSeconds() << "s");
+    
+    // Schedule next flood (every 0.05 seconds for high-rate flooding)
+    if (Simulator::Now().GetSeconds() < 180.0) {
+        Simulator::Schedule(Seconds(0.05), &ExecuteHeartbeatFloodAttack, socket);
     }
 }
 
