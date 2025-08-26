@@ -18,19 +18,20 @@ Communication Protocols:
    - ZMQ for external communication
    - WiFi ad-hoc (802.11a) for physical layer
 
-Port Mapping:
-   ┌─────────────┬─────────────┬──────────────────────────────┐
-   │   Node      │   Port      │          Purpose             │
-   ├─────────────┼─────────────┼──────────────────────────────┤
-   │ Drone1      │ 5551/UDP    │ MAVLink command reception    │
-   │ Drone2      │ 5552/UDP    │ MAVLink command reception    │
-   │ All Drones  │ 20000/UDP   │ GPS position sharing ,       |
-   |             |             |  drone sys status,           |
-   |             |             |  drone heartbeat             |
-   |             |             |                              │
-   │ External    │ 5555/TCP    │ ZMQ command publishing       │
-   │ External    │ 5556/TCP    │ ZMQ position updates         │
-   └─────────────┴─────────────┴──────────────────────────────┘
+Port Mapping
+┌─────────────┬───────────┬──────────────────────────────────────────────────────────────┐
+│ Node        │ Port      │ Purpose                                                      │
+├─────────────┼───────────┼──────────────────────────────────────────────────────────────┤
+│ All Drones  │ 20000/UDP │ MAVLink command reception (COMMAND_LONG, MISSION_ITEM);      │
+│             │           │ broadcast/forward of GPS_RAW_INT, SYS_STATUS, HEARTBEAT      │
+│             │           │ (send & receive on 20000/UDP)                                │
+├─────────────┼───────────┼──────────────────────────────────────────────────────────────┤
+│ Attacker    │  5550/UDP │ Send malicious MAVLink packets to drones                     │
+├─────────────┼───────────┼──────────────────────────────────────────────────────────────┤
+│ External    │  5555/TCP │ ZMQ command publishing                                       │
+│ (Host/App)  │  5556/TCP │ ZMQ position updates                                         │
+└─────────────┴───────────┴──────────────────────────────────────────────────────────────┘
+
 
 
 Node Relationships:
@@ -47,9 +48,9 @@ Node Relationships:
                                +-------------+             
 
 
-- Mission Control: Drone0 sends waypoints to other drones
-- Position Sharing: Drones broadcast GPS updates via UDP
-- Attack Simulation: Attacker injects malicious commands
+- Mission Control: Drone0 sends MAVLink commands to other drones via port 20000
+- Position Sharing: Drones broadcast mavlink GPS_INT, SYS_STATUS and HEARTBEAT messages via UDP port 20000
+- All MAVLink communication consolidated to single port (20000/UDP)
 ================================================================================
 */
 #include "ns3/core-module.h"
@@ -148,8 +149,8 @@ void SendWaypointPairFromDrone0(int pairIndex) {
     Ptr<Packet> packet2 = Create<Packet>(pkt2.data(), pkt2.size());
     
     // Send the waypoint packets directly to drone 1 and drone 2 using their IPs and MAVLink ports
-    socket->SendTo(packet1, 0, InetSocketAddress(droneIpAddresses[1], 5551)); // Drone 1 (ardupilot 2nd drone)
-    socket->SendTo(packet2, 0, InetSocketAddress(droneIpAddresses[2], 5552)); // Drone 2 (ardupilot 3rd drone)
+    socket->SendTo(packet1, 0, InetSocketAddress(droneIpAddresses[1], 20000)); // Drone 1 (ardupilot 2nd drone)
+    socket->SendTo(packet2, 0, InetSocketAddress(droneIpAddresses[2], 20000)); // Drone 2 (ardupilot 3rd drone)
     
     // Log the sending event with the current simulation time
     NS_LOG_INFO("Drone0 sent waypoint pair " << pairIndex + 1 << " at " 
@@ -454,7 +455,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Install packet sinks for MAVLink ports and GPS forwarding port
-    std::vector<uint16_t> ports = {5550, 5551, 5552, 20000};
+    std::vector<uint16_t> ports = {20000};
     InstallPacketSinks(drones, ports, simTime);
 
     // Schedule force disarm attack at seconds 20.0
