@@ -312,7 +312,7 @@ std::vector<uint8_t> CreateSetHomePositionPacket(uint8_t target_system, double l
 }
 
 // Create a MAVLink GLOBAL_POSITION_INT message for QGroundControl spoofing
-std::vector<uint8_t> CreateQgcSpoofPacket(uint8_t system_id, double lat, double lon, double alt) {
+std::vector<uint8_t> CreateQgcLocationSpoofPacket(uint8_t system_id, double lat, double lon, double alt) {
     mavlink_message_t msg;
     uint8_t component_id = 0;  // Typically 0 for autopilot
 
