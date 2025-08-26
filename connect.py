@@ -44,11 +44,11 @@ for conn_str in CONNECTION_STRINGS_Mavlink:
 
 def publish_drone_mavlink(vehicles):
     """
-    Continuously capture GPS_RAW_INT and SYS_STATUS (battery) messages from each drone
+    Continuously capture GPS_RAW_INT and SYS_STATUS and HEARTBEAT messages from each drone
     and send raw MAVLink packets via ZMQ.
 
     Message format for ZMQ:
-      - First byte: message type (0 = GPS_RAW_INT, 1 = SYS_STATUS)
+      - First byte: message type (0 = GPS_RAW_INT, 1 = SYS_STATUS, 2 = HEARTBEAT)
       - Second byte: drone index (0, 1, 2 for Drone 1..3)
       - Remaining bytes: raw MAVLink message bytes
     """
@@ -78,6 +78,18 @@ def publish_drone_mavlink(vehicles):
                 payload = bytes([1, drone_id]) + raw_bytes
                 # Send the payload over ZMQ PUB socket
                 position_publisher.send(payload)
+                
+            # NEW: Try to receive HEARTBEAT message (non-blocking)
+            heartbeat_msg = master.recv_match(type='HEARTBEAT', blocking=False)
+            if heartbeat_msg:
+                # Get the raw MAVLink-encoded byte buffer for the message
+                raw_bytes = heartbeat_msg.get_msgbuf()
+                # Prepend message type (2 for heartbeat) and drone ID
+                payload = bytes([2, drone_id]) + raw_bytes
+                # Send the payload over ZMQ PUB socket
+                position_publisher.send(payload)
+                # NEW: Log heartbeat for debugging
+                print(f"Drone {drone_id+1}: Heartbeat forwarded")
                 
         # Small delay to avoid overwhelming CPU
         time.sleep(0.05)
