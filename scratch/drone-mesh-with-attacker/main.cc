@@ -492,6 +492,9 @@ int main(int argc, char *argv[]) {
     // Schedule Set Home Position Attack at second 50.0
     //Simulator::Schedule(Seconds(50.0), &ExecuteSetHomeAttack, attackerSocket);
 
+   // Schedule DOS Attack at second 60.0
+    //Simulator::Schedule(Seconds(60.0), &ExecuteHeartbeatFloodAttack, attackerSocket);
+
 
     // Setup output files
     auto t = std::time(nullptr);
