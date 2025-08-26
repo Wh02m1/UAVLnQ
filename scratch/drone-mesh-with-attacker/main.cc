@@ -477,8 +477,8 @@ int main(int argc, char *argv[]) {
     // Schedule Battery spoofing attack at second 10.0
        //Simulator::Schedule(Seconds(10.0), &ExecuteBatterySpoofingAttack, attackerSocket);
 
-    //Schedule QGroundControl spoofing attack at second 10.0
-       //Simulator::Schedule(Seconds(10.0), &ExecuteQGroundControlSpoofingAttack, attackerSocket);
+    //Schedule Drone GPS Location spoofing attack at second 10.0
+       //Simulator::Schedule(Seconds(10.0), &ExecuteSpoofDroneGPSAttack, attackerSocket);
     
     
     // Schedule mission commands from Drone0 to other drones (drones 1 and 2)
