@@ -13,7 +13,7 @@ Network Topology:
      * Drone2: 10.1.1.3
 
 Communication Protocols:
-   - MAVLink over UDP for drone commands
+   - MAVLink over UDP for drone commands and status
    - ZMQ for external communication
    - WiFi ad-hoc (802.11a) for physical layer
 
@@ -21,12 +21,10 @@ Port Mapping:
    ┌─────────────┬─────────────┬──────────────────────────────┐
    │   Node      │   Port      │          Purpose             │
    ├─────────────┼─────────────┼──────────────────────────────┤
-   │ Drone1      │ 5551/UDP    │ MAVLink command reception    │
-   │ Drone2      │ 5552/UDP    │ MAVLink command reception    │
-   │ All Drones  │ 20000/UDP   │ GPS position sharing ,       |
-   |             |             |  drone sys status,           |
-   |             |             |  drone heartbeat             |
-   |             |             |                              │
+   │ All Drones  │ 20000/UDP   │ MAVLink command reception,   │
+   │             │             │ GPS position sharing,        │
+   │             │             │ system status, heartbeat     │
+   ├─────────────┼─────────────┼──────────────────────────────┤
    │ External    │ 5555/TCP    │ ZMQ command publishing       │
    │ External    │ 5556/TCP    │ ZMQ position updates         │
    └─────────────┴─────────────┴──────────────────────────────┘
@@ -41,11 +39,11 @@ Node Relationships:
                                    
 
 
-- Mission Control: Drone0 sends waypoints to other drones
-- Position Sharing: Drones broadcast GPS updates via UDP
+- Mission Control: Drone0 sends MAVLink commands to other drones via port 20000
+- Position Sharing: Drones broadcast mavlink GPS_INT, SYS_STATUS and HEARTBEAT messages via UDP port 20000
+- All MAVLink communication consolidated to single port (20000/UDP)
 ================================================================================
 */
-
 #include "ns3/core-module.h"
 #include "ns3/network-module.h"
 #include "ns3/mobility-module.h"
@@ -166,8 +164,9 @@ void SendWaypointPairFromDrone0(int pairIndex) {
     Ptr<Packet> packet2 = Create<Packet>(pkt2.data(), pkt2.size());
     
     // Send directly to drone IPs
-    socket->SendTo(packet1, 0, InetSocketAddress(droneIpAddresses[1], 5551));
-    socket->SendTo(packet2, 0, InetSocketAddress(droneIpAddresses[2], 5552));
+    socket->SendTo(packet1, 0, InetSocketAddress(droneIpAddresses[1], 20000));
+    socket->SendTo(packet2, 0, InetSocketAddress(droneIpAddresses[2], 20000));
+
     
     NS_LOG_INFO("Drone0 sent waypoint pair " << pairIndex + 1 << " at " 
                 << Simulator::Now().GetSeconds() << "s");
@@ -467,7 +466,7 @@ int main(int argc, char *argv[]) {
     }
 
     // Install packet sinks for MAVLink ports and GPS forwarding port
-    std::vector<uint16_t> ports = {5550, 5551, 5552, 20000};
+    std::vector<uint16_t> ports = {20000};
     InstallPacketSinks(drones, ports, simTime);
 
     // Schedule waypoint commands
