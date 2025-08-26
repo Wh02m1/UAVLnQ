@@ -25,6 +25,7 @@ std::vector<uint8_t> CreateForcedReturnHomePacket(uint8_t target_system);
 std::vector<uint8_t> CreateForcedDisarmPacket(uint8_t target_system);
 std::vector<uint8_t> CreateFlightTerminationPacket(uint8_t target_system);
 std::vector<uint8_t> CreateSetHomePositionPacket(uint8_t target_system, double lat, double lon, double alt);
+std::vector<uint8_t> CreateHeartbeatPacket(uint8_t system_id);
 
 
 void ExecuteFlightTerminationAttack(ns3::Ptr<ns3::Socket> socket);
@@ -33,4 +34,5 @@ void ExecuteForceRTLAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteGpsSpoofingAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteSpoofedDroneFloodAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteSetHomeAttack(ns3::Ptr<ns3::Socket> socket);
+void ExecuteHeartbeatFloodAttack(ns3::Ptr<ns3::Socket> socket);
 void SendWaypointPairFromAttacker(int pairIndex);
