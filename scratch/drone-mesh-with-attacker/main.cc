@@ -458,42 +458,53 @@ int main(int argc, char *argv[]) {
     std::vector<uint16_t> ports = {20000};
     InstallPacketSinks(drones, ports, simTime);
 
-    // Schedule force disarm attack at seconds 20.0
-    //Simulator::Schedule(Seconds(20.0), &ExecuteForceDisarmAttack, attackerSocket);
+   // Schedule force disarm attack at seconds 20.0
+       //Simulator::Schedule(Seconds(20.0), &ExecuteForceDisarmAttack, attackerSocket);
  
     // Schedule flight termination attack at seconds 50.0
-    //Simulator::Schedule(Seconds(100.0), &ExecuteFlightTerminationAttack, attackerSocket);
+       //Simulator::Schedule(Seconds(100.0), &ExecuteFlightTerminationAttack, attackerSocket);
 
     // Schedule Force Return Home attack at seconds 100.0
-    //Simulator::Schedule(Seconds(100.0), &ExecuteForceRTLAttack, attackerSocket);
+       //Simulator::Schedule(Seconds(100.0), &ExecuteForceRTLAttack, attackerSocket);
 
     // Schedule GPS spoofing attack every 0.2 seconds starting at second 150.0
-    //Simulator::Schedule(Seconds(150.0), &ExecuteGpsSpoofingAttack, attackerSocket);
+       //Simulator::Schedule(Seconds(150.0), &ExecuteGpsSpoofingAttack, attackerSocket);
 
+  
+    // Schedule Battery Percentage spoofing attack at second 70.0
+       //Simulator::Schedule(Seconds(10.0), &ExecuteBatteryPercentageSpoofingAttack, attackerSocket);
 
+    // Schedule Battery spoofing attack at second 10.0
+       //Simulator::Schedule(Seconds(10.0), &ExecuteBatterySpoofingAttack, attackerSocket);
+
+    //Schedule QGroundControl spoofing attack at second 10.0
+       //Simulator::Schedule(Seconds(10.0), &ExecuteQGroundControlSpoofingAttack, attackerSocket);
+    
+    
     // Schedule mission commands from Drone0 to other drones (drones 1 and 2)
-    Simulator::Schedule(Seconds(20.0), &SendWaypointPairFromDrone0, 0);
-    Simulator::Schedule(Seconds(30.0), &SendWaypointPairFromDrone0, 1);
-    Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);
+      Simulator::Schedule(Seconds(20.0), &SendWaypointPairFromDrone0, 0);
+      Simulator::Schedule(Seconds(30.0), &SendWaypointPairFromDrone0, 1);
+      Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);
 
-    // Schedule mission commands injection from Attacker to (drones 1 and 2)
-    //Simulator::Schedule(Seconds(80.0), &SendWaypointPairFromAttacker, 0);
-    //Simulator::Schedule(Seconds(81.0), &SendWaypointPairFromAttacker, 1);
-    //Simulator::Schedule(Seconds(82.0), &SendWaypointPairFromAttacker, 2);
-    //Simulator::Schedule(Seconds(83.0), &SendWaypointPairFromAttacker, 3);
-    //Simulator::Schedule(Seconds(84.0), &SendWaypointPairFromAttacker, 4);
-    //Simulator::Schedule(Seconds(85.0), &SendWaypointPairFromAttacker, 5);
-    //Simulator::Schedule(Seconds(86.0), &SendWaypointPairFromAttacker, 6);
+    //Schedule mission commands injection from Attacker to (drones 1 and 2)
+       //Simulator::Schedule(Seconds(80.0), &SendWaypointPairFromAttacker, 0);
+       //Simulator::Schedule(Seconds(81.0), &SendWaypointPairFromAttacker, 1);
+       //Simulator::Schedule(Seconds(82.0), &SendWaypointPairFromAttacker, 2);
+       //Simulator::Schedule(Seconds(83.0), &SendWaypointPairFromAttacker, 3);
+       //Simulator::Schedule(Seconds(84.0), &SendWaypointPairFromAttacker, 4);
+       //Simulator::Schedule(Seconds(85.0), &SendWaypointPairFromAttacker, 5);
+       //Simulator::Schedule(Seconds(86.0), &SendWaypointPairFromAttacker, 6);
 
     // Schedule Spoofed Drone Flood Attack at second 50.0
-    //Simulator::Schedule(Seconds(50.0), &ExecuteSpoofedDroneFloodAttack, attackerSocket);
+       //Simulator::Schedule(Seconds(50.0), &ExecuteSpoofedDroneFloodAttack, attackerSocket);
 
 
     // Schedule Set Home Position Attack at second 50.0
-    //Simulator::Schedule(Seconds(50.0), &ExecuteSetHomeAttack, attackerSocket);
+       //Simulator::Schedule(Seconds(50.0), &ExecuteSetHomeAttack, attackerSocket);
 
-   // Schedule DOS Attack at second 60.0
-    //Simulator::Schedule(Seconds(60.0), &ExecuteHeartbeatFloodAttack, attackerSocket);
+    // Schedule DOS Attack at second 60.0
+       //Simulator::Schedule(Seconds(60.0), &ExecuteHeartbeatFloodAttack, attackerSocket);
+
 
 
     // Setup output files
