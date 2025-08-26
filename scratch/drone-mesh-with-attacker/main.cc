@@ -164,13 +164,13 @@ void SendWaypointPairFromDrone0(int pairIndex) {
     }
 }
 
-// Process binary MAVLink GPS_RAW_INT and SYS_STATUS messages that will received from ZMQ 
+// Process binary MAVLink GPS_RAW_INT, SYS_STATUS, and HEARTBEAT messages that will received from ZMQ 
 // ZMQ message format: [message_type (1 byte), drone_id (1 byte), MAVLink message bytes]
-// Message types: 0 = GPS_RAW_INT, 1 = SYS_STATUS
+// Message types: 0 = GPS_RAW_INT, 1 = SYS_STATUS, 2 = HEARTBEAT
 void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
     if (data.size() < 2) return; // Need at least message type and drone ID
     
-    // First byte is message type (0 for GPS, 1 for system status)
+    // First byte is message type (0 for GPS, 1 for system status, 2 for heartbeat)
     uint8_t msg_type = data[0];
     // Second byte is drone ID (0 or 1 or 2)
     uint8_t droneId = data[1];
@@ -219,6 +219,20 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
                             << " battery_remaining=" << sys_status.battery_remaining
                             << " comms_drop_rate=" << sys_status.drop_rate_comm);
             }
+            // NEW: If the message is a HEARTBEAT (contains system health data)
+            else if (msg_type == 2 && msg.msgid == MAVLINK_MSG_ID_HEARTBEAT) {
+                mavlink_heartbeat_t heartbeat;
+                // Decode the HEARTBEAT message to extract system health fields
+                mavlink_msg_heartbeat_decode(&msg, &heartbeat);
+                
+                // Log the heartbeat information
+                NS_LOG_INFO("Drone " << static_cast<int>(droneId) 
+                            << " HEARTBEAT: type=" << static_cast<int>(heartbeat.type)
+                            << " autopilot=" << static_cast<int>(heartbeat.autopilot)
+                            << " base_mode=" << static_cast<int>(heartbeat.base_mode)
+                            << " custom_mode=" << heartbeat.custom_mode
+                            << " system_status=" << static_cast<int>(heartbeat.system_status));
+            }
             
             // Forward the MAVLink packet to all other drones (except itself) on port 20000
             // We forward only the raw MAVLink message (without message type and drone ID)
@@ -237,13 +251,14 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
                 }
                
                 /**
-                For example, if Drone 0 receives a MAVLink GPS_RAW_INT or SYS_STATUS message:
-                - Drone extracts the message type (0 for GPS, 1 for system status) and its own ID from the message.
-                - It decodes the message data (GPS coordinates or system status information).
+                For example, if Drone 0 receives a MAVLink GPS_RAW_INT, SYS_STATUS, or HEARTBEAT message:
+                - Drone extracts the message type (0 for GPS, 1 for system status, 2 for heartbeat) and its own ID from the message.
+                - It decodes the message data (GPS coordinates, system status information, or system health).
                     - For GPS messages, it updates its own position in the simulation using the coordinates.
                     - For system status messages, it logs battery voltage, remaining percentage, and communication drop rate.
+                    - For heartbeat messages, it logs system type, autopilot type, and system status.
                 - It sends the MAVLink packet (without the message type and drone ID prefix) to the other drone's IP address on port 20000.
-                This ensures that every drone knows both the position and system status of every other drone
+                This ensures that every drone knows the position, system status, and health of every other drone
                 */
             }
         }
