@@ -26,7 +26,7 @@ Each attack creates and injects malicious MAVLink packets into the network to ma
 | 5  | Forced Return-to-Launch (RTL)     | `CreateForcedReturnHomePacket`      | Sends a `SET_MODE` MAVLink packet to force drones into RTL mode. Causes premature mission abortion and retreat to home. |
 | 6  | Forced Disarm                     | `CreateForcedDisarmPacket`          | Sends `MAV_CMD_COMPONENT_ARM_DISARM` with the force disarm magic number. Immediately disarms motors mid-flight. |
 | 7  | Flight Termination                | `CreateFlightTerminationPacket`     | Sends `MAV_CMD_DO_FLIGHTTERMINATION`. Causes drones to immediately cut off motors. |
-| 8  | Home Position Hijack              | `CreateSetHomePositionPacket`       | Maliciously sets a drone's home location near the attacker. On RTL, drones return to attacker's position. |
+| 8  | Home Position Hijack              | `CreateSetHomePositionPacket`       | Maliciously sets a drone's home location near the attacker using `MAV_CMD_DO_SET_HOME`. On RTL, drones return to attacker's position. |
 | 9  | Heartbeat Flood DoS               | `CreateHeartbeatPacket`             | Floods the network with MAVLink `HEARTBEAT` messages from multiple spoofed drones (IDs 4–20). Overloads communication and processing. |
 | 10 | Drones Location Spoofing           | `CreateQgcLocationSpoofPacket`              | Spoofs drone positions in QGroundControl by sending fake `GLOBAL_POSITION_INT` messages. |
 | 11 | Battery Status Spoofing           | `CreateSpoofedBatteryStatusPacket`  | Sends fake `BATTERY_STATUS` MAVLink packets to spoof battery percentage and voltage. |
