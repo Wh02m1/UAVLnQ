@@ -33,3 +33,5 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${PROJECT_SOURCE_DIR}/c_library_v2
 )
+
+add_compile_options(-Wno-pedantic -Wno-address-of-packed-member)
