@@ -374,7 +374,7 @@ std::vector<uint8_t> CreateSpoofedBatteryStatusPacket(uint8_t target_system, uin
 
 
 
-//-------------------------------------------------------------------------Execute Attacks Fubctions-----------------------------------------------------
+//-------------------------------------------------------------------------Execute Attacks Functions-----------------------------------------------------
 
 // Function to execute flight termination attack on drones 1 and 2 
 void ExecuteFlightTerminationAttack(Ptr<Socket> socket) {
