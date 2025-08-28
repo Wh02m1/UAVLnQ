@@ -1,4 +1,4 @@
-# UAVLnQ (Integrated UAV Network Simulator)
+# UAVLnQ (UAV Network Simulator)
 
 
 # System Architecture
