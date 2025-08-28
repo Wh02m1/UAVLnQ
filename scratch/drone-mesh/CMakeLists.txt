@@ -33,3 +33,5 @@ include_directories(
   ${ZMQ_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/c_library_v2
 )
+
+add_compile_options(-Wno-pedantic -Wno-address-of-packed-member)
