@@ -610,7 +610,7 @@ void ExecuteSpoofDroneGPSAttack(Ptr<Socket> socket) {
     
     // Schedule next update (every 0.1 seconds)
     if (Simulator::Now().GetSeconds() < 180.0) {
-        Simulator::Schedule(Seconds(0.1), &ExecuteQGroundControlSpoofingAttack, socket);
+        Simulator::Schedule(Seconds(0.1), &ExecuteSpoofDroneGPSAttack, socket);
     }
 }
 
