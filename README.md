@@ -72,14 +72,14 @@ In another terminal, run the NS3 parser:
 python3.9 Mavlink-NS3-Parser.py
 ```
 
-> ⚠️ Before running, make sure to modify the NS3 line in connect.py depending on your use case:
-
-Normal mission:
+> ⚠️ Before running, make sure to modify the NS3 line in connect.py depending on your use case.
+> You need to modify **both the path to NS-3** and the **mission file**('scratch/drone-mesh/drone_mesh' or 'scratch/drone-mesh-with-attacker/drone_mesh'. 
+Normal mission file:
 ```bash
 '/home/boda/Desktop/ns-3-dev/ns3','run','scratch/drone-mesh/drone_mesh'
 ```
 
-Attack mission:
+Attack mission file:
 ```bash
 '/home/boda/Desktop/ns-3-dev/ns3','run','scratch/drone-mesh-with-attacker/drone_mesh'
 ```
