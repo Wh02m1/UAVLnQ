@@ -51,7 +51,7 @@ This guide explains how to set up and run **multiple ArduCopter SITL drones** wi
 - QGroundControl AppImage downloaded (`QGroundControl-x86_64.AppImage`).
 - Python scripts:  
   - `connect.py`  
-  - `parser.py`  
+  - `Mavlink-NS3-Parser.py`  
 
 ---
 
@@ -64,7 +64,7 @@ python3 connect.py
 
 In another terminal, run the NS3 parser:
 ```bash
-python3 ns3_parser.py
+python3 Mavlink-NS3-Parser.py
 ```
 
 > ⚠️ Make sure to modify the **NS3 line in `connect.py`** to include either the `attack` or `without attack` use case.
