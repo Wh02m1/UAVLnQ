@@ -57,6 +57,13 @@ This guide explains how to set up and run **multiple ArduCopter SITL drones** wi
 
 ## 2. Run NS3 and Connector
 
+## 2. Run NS3 and Connector
+
+First, activate your Python virtual environment (recommended):  
+```bash
+source drone_env/bin/activate
+```
+
 In one terminal, run the connector:
 ```bash
 python3 connect.py
@@ -67,7 +74,17 @@ In another terminal, run the NS3 parser:
 python3 Mavlink-NS3-Parser.py
 ```
 
-> ⚠️ Make sure to modify the **NS3 line in `connect.py`** to include either the `attack` or `without attack` use case.
+> ⚠️ Before running, make sure to modify the NS3 line in connect.py depending on your use case:
+
+Normal mission:
+```bash
+'/home/boda/Desktop/ns-3-dev/ns3','run','scratch/drone-mesh/drone_mesh'
+```
+
+Attack mission:
+```bash
+'/home/boda/Desktop/ns-3-dev/ns3','run','scratch/drone-mesh-with-attacker/drone_mesh'
+```
 
 ---
 
