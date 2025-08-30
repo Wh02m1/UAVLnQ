@@ -64,12 +64,12 @@ source drone_env/bin/activate
 
 In one terminal, run the connector:
 ```bash
-python3 connect.py
+python3.9 connect.py
 ```
 
 In another terminal, run the NS3 parser:
 ```bash
-python3 Mavlink-NS3-Parser.py
+python3.9 Mavlink-NS3-Parser.py
 ```
 
 > ⚠️ Before running, make sure to modify the NS3 line in connect.py depending on your use case:
