@@ -89,22 +89,22 @@ sim_vehicle.py -v ArduCopter --console --map
 
 > When running SITL, you should see something like:
 
-<pre> ```text
+<pre>
 'build' finished successfully (…)
 Starting ArduCopter ...
 Connect tcp:127.0.0.1:5760 source_system=255
 Detected vehicle 1:1 on link 0
 Received 1359 parameters (ftp)
 Saved 1359 parameters to mav.parm
-``` </pre>
+</pre>
 
 > MAVProxy Console
 
 The MAVProxy console will open with the prompt:
 
-<pre> ```text
+<pre>
 STABILIZE>
-``` </pre>
+</pre>
 
 > Map Window
 A map window will open. It may briefly say "map not ready", but it loads once GPS data is available.
@@ -192,7 +192,7 @@ export GZ_SIM_RESOURCE_PATH=/enter/path/to/your/ardupilot_gazebo/models:/enter/p
 ### 10. Gazebo Simulation Setup and Use Cases
 A step-by-step guide for running single-UAV and multi-UAV simulations in Gazebo with ArduPilot, including setup, configuration, and testing.
 
-- [Gazebo Setup Guide] (INSTALLATION_GAZEBO.md)
+- [Gazebo Setup Guide] (docs/INSTALLATION_GAZEBO.md)
 
 ---
 
@@ -285,13 +285,13 @@ cd UAVLnQ
 
 Before running the simulations, update the paths in the following files to specify where the PCAP files should be saved:
 
-<pre> ```text scratch/drone-mesh/main.cc 
-scratch/drone-mesh-with-attack/main.cc ``` </pre>
+<pre> scratch/drone-mesh/main.cc 
+scratch/drone-mesh-with-attack/main.cc </pre>
 
 Look for the paths:
 
-<pre> ``` /home/boda/Desktop/Final-DroneNS3/ns3-output/drone-mesh- 
-/home/boda/Desktop/Final-DroneNS3/ns3-output/drone-mesh-anim_ ``` </pre>
+<pre> /home/boda/Desktop/Final-DroneNS3/ns3-output/drone-mesh- 
+/home/boda/Desktop/Final-DroneNS3/ns3-output/drone-mesh-anim_ </pre>
 
 and change them to the desired location for saving PCAP files.
 
