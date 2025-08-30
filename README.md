@@ -38,18 +38,68 @@ Each attack creates and injects malicious MAVLink packets into the network to ma
 # Installation
 - [Installation Guide](docs/INSTALLATION.md)
 
-# Setup
-launches multiple drones using **ArduCopter SITL** with Gazebo 3D simulator.
+# Multi-Drone SITL + Gazebo + NS3 Setup Guide
+
+This guide explains how to set up and run **multiple ArduCopter SITL drones** with Gazebo, NS3, and QGroundControl.
+
+---
+## 1. Prerequisites
+> Follow the ArduPilot and Gazebo installation guides to fulfill the prerequisites.
+
+- ArduPilot installed and `sim_vehicle.py` added to your `PATH`.
+- Gazebo installed with the custom world file (`worlds/Custom_3_uav.sdf`).
+- QGroundControl AppImage downloaded (`QGroundControl-x86_64.AppImage`).
+- Python scripts:  
+  - `connect.py`  
+  - `parser.py`  
+
+---
+
+## 2. Run NS3 and Connector
+
+In one terminal, run the connector:
+```bash
+python3 connect.py
+```
+
+In another terminal, run the NS3 parser:
+```bash
+python3 ns3_parser.py
+```
+
+> ⚠️ Make sure to modify the **NS3 line in `connect.py`** to include either the `attack` or `without attack` use case.
+
+---
+
+## 3. Launch Gazebo
+
+Run Gazebo with the custom multi-drone world:
+```bash
+gz sim worlds/Custom_3_uav.sdf
+```
+
+---
+
+## 4. Launch QGroundControl
+
+Run QGroundControl in a separate terminal:
+```bash
+./QGroundControl-x86_64.AppImage
+```
+
+---
+
+## 5. Launch Multiple Drones
 ### Drone 1
 ```bash
-./sim_vehicle.py -v ArduCopter -f gazebo-iris -I0 --sysid=1 --model JSON --console \
+sim_vehicle.py -v ArduCopter -f gazebo-iris -I0 --sysid=1 --model JSON --console \
 --out=udp:127.0.0.1:14551 \
 --out=udp:127.0.0.1:14552 \
 --out=udp:127.0.0.1:14553
 ```
 ### Drone 2
 ```bash
-./sim_vehicle.py -v ArduCopter -f gazebo-iris -I1 --sysid=2 --model JSON --console \
+sim_vehicle.py -v ArduCopter -f gazebo-iris -I1 --sysid=2 --model JSON --console \
 --out=udp:127.0.0.1:14561 \
 --out=udp:127.0.0.1:14562 \
 --out=udp:127.0.0.1:14563
@@ -57,10 +107,16 @@ launches multiple drones using **ArduCopter SITL** with Gazebo 3D simulator.
 
 ### Drone 3
 ```bash
-./sim_vehicle.py -v ArduCopter -f gazebo-iris -I2 --sysid=3 --model JSON --console \
+sim_vehicle.py -v ArduCopter -f gazebo-iris -I2 --sysid=3 --model JSON --console \
 --out=udp:127.0.0.1:14571 \
 --out=udp:127.0.0.1:14572 \
 --out=udp:127.0.0.1:14573
 ```
+
+---
+
+
+
+
 
 
