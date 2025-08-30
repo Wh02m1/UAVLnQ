@@ -57,8 +57,6 @@ This guide explains how to set up and run **multiple ArduCopter SITL drones** wi
 
 ## 2. Run NS3 and Connector
 
-## 2. Run NS3 and Connector
-
 First, activate your Python virtual environment (recommended):  
 ```bash
 source drone_env/bin/activate
