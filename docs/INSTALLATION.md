@@ -192,7 +192,7 @@ export GZ_SIM_RESOURCE_PATH=/enter/path/to/your/ardupilot_gazebo/models:/enter/p
 ### 10. Gazebo Simulation Setup and Use Cases
 A step-by-step guide for running single-UAV and multi-UAV simulations in Gazebo with ArduPilot, including setup, configuration, and testing.
 
-[Gazebo Setup Guide](docs/INSTALLATION_GAZEBO.md)
+[Gazebo Setup Guide](INSTALLATION_GAZEBO.md)
 
 ---
 
