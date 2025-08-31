@@ -198,11 +198,11 @@ while True:
                             )
                             print(f"Set mode for Drone {drone_id}")
                         except Exception as e:
-                            print(f"[X] Failed to send set mode to Drone {drone_id}: {e}")
+                            print(f"Failed to send set mode to Drone {drone_id}: {e}")
                     else:
-                        print(f"[!] Connection for Drone {drone_id} not found.")
+                        print(f"Connection for Drone {drone_id} not found.")
                 else:
-                    print(f"[!] Ignoring mode change for spoofed drone {drone_id}")
+                    print(f"Ignoring mode change for spoofed drone {drone_id}")
 
             # This is for the attack to inject a MISSION_ITEM into the drone's mission plan
             if msg.get_msgId() == mavutil.mavlink.MAVLINK_MSG_ID_MISSION_ITEM and msg.command == mavutil.mavlink.MAV_CMD_NAV_WAYPOINT:
@@ -221,7 +221,7 @@ while True:
                         f.write(mission_line + "\n")
                     print(f"Appended Mission Item To {filename}: {mission_line}")
                 except Exception as e:
-                    print(f"[X] Failed to write mission item for Drone {drone_id}: {e}")
+                    print(f"Failed to write mission item for Drone {drone_id}: {e}")
                     
         except Exception as e:
-            print(f"[X] Error handling MAVLink message: {e}")
+            print(f"Error handling MAVLink message: {e}")
