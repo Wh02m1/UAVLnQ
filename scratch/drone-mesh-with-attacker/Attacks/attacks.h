@@ -21,7 +21,7 @@ extern double s_metersPerDegreeLon;
 
 // Drones SITL Attacks
 std::vector<uint8_t> CreateMavlinkMissionPacket(uint8_t target_system, uint8_t target_component,float lat, float lon, float alt);
-std::vector<uint8_t> CreateFakeGpsPacket(uint8_t droneId, double lat, double lon, double alt);
+std::vector<uint8_t> CreateFakeGPS_RAW_INT_Packet(uint8_t droneId, double lat, double lon, double alt);
 std::vector<uint8_t> CreateChangeSpeedPacket(uint8_t target_system, float speedType, float speed);
 std::vector<uint8_t> CreateForcedReturnHomePacket(uint8_t target_system);
 std::vector<uint8_t> CreateForcedDisarmPacket(uint8_t target_system);
@@ -40,7 +40,7 @@ std::vector<uint8_t> CreateHeartbeatPacket(uint8_t system_id);
 void ExecuteFlightTerminationAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteForceDisarmAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteForceRTLAttack(ns3::Ptr<ns3::Socket> socket);
-void ExecuteGpsSpoofingAttack(ns3::Ptr<ns3::Socket> socket);
+void Execute_GPS_RAW_INT_SpoofingAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteSpoofedDroneFloodAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteSpeedManipulationAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteSetHomeAttack(ns3::Ptr<ns3::Socket> socket);
