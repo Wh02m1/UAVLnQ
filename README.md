@@ -83,17 +83,17 @@ This guide explains how to set up and run **multiple ArduCopter SITL drones** wi
 
 The line to be modified:
 ```bash
-'/home/boda/Desktop/ns-3-dev/ns3','run','scratch/drone-mesh/drone_mesh'
+'/path/to/change/ns-3-dev/ns3','run','scratch/drone-mesh/drone_mesh'
 ```
 
 Normal Senario:
 ```bash
-'/your/path/to/ns-3-dev/ns3','run','scratch/drone-mesh/drone_mesh'
+'/path/to/change/ns-3-dev/ns3','run','scratch/drone-mesh/drone_mesh'
 ```
 
 With Attacker Senario:
 ```bash
-'/your/path/to/ns-3-dev/ns3','run','scratch/drone-mesh-with-attacker/drone_mesh'
+'/path/to/change/ns-3-dev/ns3','run','scratch/drone-mesh-with-attacker/drone_mesh'
 ```
 ---
 
