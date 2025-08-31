@@ -73,7 +73,7 @@ std::vector<uint8_t> CreateMavlinkMissionPacket(uint8_t target_system, uint8_t t
 // A False Data Injection Attack that allows an attacker to send a fake GPS_RAW_INT MAVLink packet
 // for a specific drone. This can be used to spoof the drone's position, altitude, and movement data,
 // tricking the drone into believing it is at a false location.
-std::vector<uint8_t> CreateFakeGpsPacket(uint8_t droneId, double lat, double lon, double alt) {
+std::vector<uint8_t> CreateFakeGPS_RAW_INT_Packet(uint8_t droneId, double lat, double lon, double alt) {
     
     mavlink_message_t msg; // MAVLink message container
     
@@ -598,7 +598,7 @@ Packets appear to come from legitimate drones (via spoofed system_id)
  */
 // This attack is in the network layer and will not be forwarded to zmq and parsed by the mavlink parser
 // It will be sent directly to the drones via UDP sockets
-void ExecuteGpsSpoofingAttack(Ptr<Socket> socket) {
+void Execute_GPS_RAW_INT_SpoofingAttack(Ptr<Socket> socket) {
     double fakeLat = 50; // fixed latitude for spoofing
     double fakeLon = 50; // fixed longitude for spoofing 
     double fakeAlt = 50; // fixed altitude for spoofing
@@ -606,7 +606,7 @@ void ExecuteGpsSpoofingAttack(Ptr<Socket> socket) {
     // Spoof positions for ALL drones (0,1,2)
     for (uint8_t spoofedDroneId = 0; spoofedDroneId <= 2; spoofedDroneId++) {
         // Create fake GPS for this drone
-        std::vector<uint8_t> fakeGps = CreateFakeGpsPacket(
+        std::vector<uint8_t> fakeGps = CreateFakeGPS_RAW_INT_Packet(
             spoofedDroneId + 1,  // system_id: drone0=1, drone1=2, drone2=3
             fakeLat, fakeLon, fakeAlt
         );
@@ -625,7 +625,7 @@ void ExecuteGpsSpoofingAttack(Ptr<Socket> socket) {
     }
     
     NS_LOG_INFO("Attacker sent network-wide fake GPS at " << Simulator::Now().GetSeconds() << "s");
-    Simulator::Schedule(Seconds(0.2), &ExecuteGpsSpoofingAttack, socket);
+    Simulator::Schedule(Seconds(0.2), &Execute_GPS_RAW_INT_SpoofingAttack, socket);
 }
 
 // Attack execution function
