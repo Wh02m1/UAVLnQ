@@ -97,7 +97,7 @@ With Attacker Senario:
 ```
 ---
 
-### Enabling Attacks
+## Enabling Attacks
 
 All attack functions are defined but commented out by default inside:
 `scratch/drone-mesh-with-attacker/main.cc`
