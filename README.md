@@ -1,6 +1,20 @@
 # UAVLnQ (UAV Network Simulator)
 
+This repository provides a simulated environment for studying UAV (Unmanned Aerial Vehicle) network security using **ArduPilot SITL** and **ns-3**.  
 
+The setup models a set  of three drones connected in a mesh-style network, with additional communication links to **QGroundControl (QGC)**.  
+
+The simulation implements a **leader–follower topology**, where:
+
+- **Leader Drone** (commander) issues mission commands and waypoints.  
+- **Follower Drones** receive mission updates from the leader, continuously broadcast telemetry (GPS position,system status, heartbeat) through MAVLink messages, and cooperate with each other to maintain coordinated swarm operations.
+
+The environment is designed to:
+- Evaluate **normal swarm coordination** under realistic MAVLink communication flows.  
+- Test **attack scenarios** to such setup.  
+
+By combining **ns-3’s network simulation capabilities** with **ArduPilot SITL flight logic**, UAVLnQ enables both **network-level packet attakcs** and **vehicle-level attaks**, offering a comprehensive framework for UAV security research.
+---
 # System Architecture
 
 Overall system architecture Without Attacker:
@@ -10,11 +24,6 @@ Overall system architecture Without Attacker:
 Overall system architecture with Attacker Sending malformed mavlink packets:
 
 ![Architecture with Attacker](docs/Architecture_with_attacker.png)
-
-# Simulated Drone Attacks (NS-3 + MAVLink)
-
-This repository contains implementations of various **MAVLink attack scenarios** targeting UAV swarms.  
-Each attack creates and injects malicious MAVLink packets into the network to manipulate drone behavior or mislead operators.
 
 ---
 
