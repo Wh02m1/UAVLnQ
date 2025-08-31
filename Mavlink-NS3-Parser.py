@@ -3,7 +3,7 @@ from pymavlink import mavutil
 import threading
 import time
 import os
-import socket  # Added missing import
+import socket
 
 # ZMQ setup
 context = zmq.Context()
@@ -12,23 +12,59 @@ subscriber.connect("tcp://localhost:5555")
 subscriber.setsockopt(zmq.SUBSCRIBE, b"")
 
 # Setup UDP sockets for QGroundControl instances
+
+# Real drones System id (1-3) use standard ports
+
 qgc_socket_1 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 qgc_socket_2 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 qgc_socket_3 = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+
 qgc_address_1 = ('127.0.0.1', 14550)  # QGroundControl port for drone 1
 qgc_address_2 = ('127.0.0.1', 14560)  # QGroundControl port for drone 2
 qgc_address_3 = ('127.0.0.1', 14570)  # QGroundControl port for drone 3
 
+# Setup UDP sockets for spoofed drones (4-10) with correct port mapping
+spoofed_sockets = {}
+spoofed_addresses = {}
+
+
+spoofed_port_mapping = {
+    4: 14580,
+    5: 14590,
+    6: 14600,
+    7: 14610,
+    8: 14620,
+    9: 14630,
+    10: 14640
+}
+"""
+System ID to Port Mapping for Spoofed Drones 
+(used in ExecuteSpoofedDroneFloodAttack in NS-3)
+
+These mappings define which UDP ports are associated with specific drone System IDs. 
+Normally, these ports would be configured in QGroundControl for later use by real drones 
+to establish telemetry and control connections.
+
+In this simulation, however, no actual drones are connected to these ports. Instead, 
+the attacker injects spoofed MAVLink traffic into them. As a result, QGroundControl 
+displays these spoofed drones as if they were real, even though no physical or SITL 
+drone exists behind the connection.
+
+This creates the illusion of multiple drones (“ghost drones”) 
+within the Ground Control Station. The ExecuteSpoofedDroneFloodAttack in NS3 leverages this.
+"""
+
+for spoofed_id, port in spoofed_port_mapping.items():
+    spoofed_sockets[spoofed_id] = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    spoofed_addresses[spoofed_id] = ('127.0.0.1', port)
+
 print("Mavlink Parser Connected to ZMQ tcp://localhost:5555")
 print(f"Forwarding messages to QGroundControl instances:")
-print(f"Drone 1: {qgc_address_1}")
-print(f"Drone 2: {qgc_address_2}")
-print(f"Drone 3: {qgc_address_3}")
 
 # MAVLink parser
 mav = mavutil.mavlink.MAVLink(None)
 
-# Drone connection strings (SITL endpoints)
+# Drone connection strings (SITL endpoints) - only for real drones (1-3)
 CONNECTION_STRINGS = [
     'udp:127.0.0.1:14553',   # Drone 1 (System ID = 1)
     'udp:127.0.0.1:14563',   # Drone 2 (System ID = 2)
@@ -44,7 +80,7 @@ connection_lock = threading.Lock()
 # Thread function to handle a single drone connection
 def drone_thread(drone_id, conn_str):
     try:
-        print(f"[+] Connecting to Drone {drone_id} at {conn_str}...")
+        print(f"Connecting to Drone {drone_id} at {conn_str}...")
         conn = mavutil.mavlink_connection(conn_str)
         conn.wait_heartbeat()
         print(f"Connected to Drone {drone_id}")
@@ -61,7 +97,7 @@ def drone_thread(drone_id, conn_str):
         with connection_lock:
             drone_connections.pop(drone_id, None)
 
-# Start a thread for each drone connection
+# Start a thread for each drone connection (only real drones 1-3)
 for i, conn_str in enumerate(CONNECTION_STRINGS, start=1):
     t = threading.Thread(target=drone_thread, args=(i, conn_str), daemon=True)
     t.start()
@@ -78,22 +114,27 @@ while True:
         # Parse the message for logging and other processing
         msgs = mav.parse_buffer(raw_data)
         
-        # Forward the raw data to appropriate QGroundControl based on target system
+        # Forward the raw data to appropriate QGroundControl based on source system ID
         if msgs and len(msgs) > 0:
-            # Get target system from the first message
-            target_system = msgs[0].target_system if hasattr(msgs[0], 'target_system') else None
+            # Get source system from the first message
+            source_system = msgs[0].get_srcSystem()
             
-            if target_system == 1:
+            # Forward based on source system ID
+            if source_system == 1:
                 qgc_socket_1.sendto(raw_data, qgc_address_1)
-            elif target_system == 2:
+            elif source_system == 2:
                 qgc_socket_2.sendto(raw_data, qgc_address_2)
-            elif target_system == 3:
+            elif source_system == 3:
                 qgc_socket_3.sendto(raw_data, qgc_address_3)
+            elif source_system in spoofed_addresses:  # Spoofed drones (4-10)
+                spoofed_sockets[source_system].sendto(raw_data, spoofed_addresses[source_system])
             else:
-                # If no target system, forward to all QGC instances
+                # If unknown source system, forward to all QGC instances
                 qgc_socket_1.sendto(raw_data, qgc_address_1)
                 qgc_socket_2.sendto(raw_data, qgc_address_2)
                 qgc_socket_3.sendto(raw_data, qgc_address_3)
+                for spoofed_id, address in spoofed_addresses.items():
+                    spoofed_sockets[spoofed_id].sendto(raw_data, address)
                 
     except Exception as e:
         print(f"[X] Failed to parse MAVLink buffer: {e}")
@@ -108,52 +149,60 @@ while True:
         try:
             # Send the commands to drone 
             # Command ID and will be :
-                # mavutil.mavlink.MAV_CMD_DO_FLIGHTTERMINATION for flight termination  
-                # mavlink.MAVLINK_MSG_ID_ARM_DISARM  for Force disarm 
-                # mavlink.MAV_CMD_DO_CHANGE_SPEED for changing drone speed
-                # mavutil.mavlink.MAV_CMD_DO_SET_HOME for setting home position 
+            # mavutil.mavlink.MAV_CMD_DO_FLIGHTTERMINATION for flight termination  
+            # mavlink.MAVLINK_MSG_ID_ARM_DISARM for Force disarm 
+            # mavlink.MAV_CMD_DO_CHANGE_SPEED for changing drone speed
+            # mavutil.mavlink.MAV_CMD_DO_SET_HOME for setting home position 
             if msg.get_msgId() == mavutil.mavlink.MAVLINK_MSG_ID_COMMAND_LONG:
                 drone_id = int(msg.target_system) 
-                with connection_lock:
-                    conn = drone_connections.get(drone_id)
-                if conn:
-                    try:
-                        conn.mav.command_long_send(
-                            msg.target_system,
-                            msg.target_component,
-                            msg.command,
-                            msg.confirmation,
-                            msg.param1,
-                            msg.param2,
-                            msg.param3,
-                            msg.param4,
-                            msg.param5,
-                            msg.param6,
-                            msg.param7
-                        )
-                        print(f"Sent command to Drone {drone_id}")
-                    except Exception as e:
-                        print(f"Failed to send command to Drone {drone_id}: {e}")
+                # Only forward commands to real drones (1-3), not spoofed ones
+                if 1 <= drone_id <= 3:
+                    with connection_lock:
+                        conn = drone_connections.get(drone_id)
+                    if conn:
+                        try:
+                            conn.mav.command_long_send(
+                                msg.target_system,
+                                msg.target_component,
+                                msg.command,
+                                msg.confirmation,
+                                msg.param1,
+                                msg.param2,
+                                msg.param3,
+                                msg.param4,
+                                msg.param5,
+                                msg.param6,
+                                msg.param7
+                            )
+                            print(f"Sent command to Drone {drone_id}")
+                        except Exception as e:
+                            print(f"Failed to send command to Drone {drone_id}: {e}")
+                    else:
+                        print(f"Connection for Drone {drone_id} not found.")
                 else:
-                    print(f"Connection for Drone {drone_id} not found.")
+                    print(f"Ignoring command for spoofed drone {drone_id}")
 
             # Send the Set mode commands to drone
             if msg.get_msgId() == mavutil.mavlink.MAVLINK_MSG_ID_SET_MODE:
                 drone_id = int(msg.target_system)
-                with connection_lock:
-                    conn = drone_connections.get(drone_id)
-                if conn:
-                    try:
-                        conn.mav.set_mode_send(
-                            msg.target_system,
-                            mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
-                            msg.custom_mode
-                        )
-                        print(f"Set mode for Drone {drone_id}")
-                    except Exception as e:
-                        print(f"Failed to send set mode to Drone {drone_id}: {e}")
+                # Only forward mode changes to real drones (1-3), not spoofed ones
+                if 1 <= drone_id <= 3:
+                    with connection_lock:
+                        conn = drone_connections.get(drone_id)
+                    if conn:
+                        try:
+                            conn.mav.set_mode_send(
+                                msg.target_system,
+                                mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
+                                msg.custom_mode
+                            )
+                            print(f"Set mode for Drone {drone_id}")
+                        except Exception as e:
+                            print(f"[X] Failed to send set mode to Drone {drone_id}: {e}")
+                    else:
+                        print(f"[!] Connection for Drone {drone_id} not found.")
                 else:
-                    print(f"Connection for Drone {drone_id} not found.")
+                    print(f"[!] Ignoring mode change for spoofed drone {drone_id}")
 
             # This is for the attack to inject a MISSION_ITEM into the drone's mission plan
             if msg.get_msgId() == mavutil.mavlink.MAVLINK_MSG_ID_MISSION_ITEM and msg.command == mavutil.mavlink.MAV_CMD_NAV_WAYPOINT:
