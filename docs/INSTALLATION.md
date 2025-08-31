@@ -200,27 +200,7 @@ A step-by-step guide for running single-UAV and multi-UAV simulations in Gazebo 
 
 Provides the user interface and control for drones, supporting mission planning, monitoring, and real-time operation.
 
-### 1. Enable Serial-Port Access
-```bash
-sudo usermod -aG dialout "$(id -un)"
-```
 
-### 2. Disable ModemManager
-```bash
-sudo systemctl mask --now ModemManager.service
-```
-
-### 3. Install Required Dependencies
-```bash
-# GStreamer (for video streaming support)
-sudo apt install gstreamer1.0-plugins-bad gstreamer1.0-libav gstreamer1.0-gl -y
-# FUSE library
-sudo apt install libfuse2 -y
-# Additional GUI support libraries
-sudo apt install libxcb-xinerama0 libxkbcommon-x11-0 libxcb-cursor-dev -y
-```
-
-### 4. Install QGroundControl
 ```bash
 # Download QGroundControl AppImage (64-bit x86)
 wget https://d176tv9ibo4jno.cloudfront.net/latest/QGroundControl-x86_64.AppImage
