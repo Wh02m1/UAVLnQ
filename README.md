@@ -13,7 +13,7 @@ The environment is designed to:
 - Evaluate **normal swarm coordination** under realistic MAVLink communication flows.  
 - Test **attack scenarios** to such setup.  
 
-By combining **ns-3’s network simulation capabilities** with **ArduPilot SITL flight logic**, UAVLnQ enables both **network-level packet attakcs** and **vehicle-level attaks**, offering a comprehensive framework for UAV security research.
+By combining **NS-3’s network simulation capabilities** with **ArduPilot SITL flight logic**, UAVLnQ enables both **network-level packet attakcs** and **vehicle-level attaks**, offering a comprehensive framework for UAV security research.
 
 ---
 
