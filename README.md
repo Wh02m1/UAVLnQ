@@ -142,6 +142,8 @@ In secound terminal, run the NS3 parser:
 ```bash
 python Mavlink-NS3-Parser.py
 ```
+<img width="1668" height="943" alt="image" src="https://github.com/user-attachments/assets/793066ca-c297-45a3-a243-5f63f132888f" />
+
 
 
 
