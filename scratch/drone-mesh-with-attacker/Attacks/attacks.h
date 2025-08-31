@@ -18,6 +18,8 @@ extern double s_refAlt;
 extern double s_metersPerDegreeLat;
 extern double s_metersPerDegreeLon;
 
+
+// Drones SITL Attacks
 std::vector<uint8_t> CreateMavlinkMissionPacket(uint8_t target_system, uint8_t target_component,float lat, float lon, float alt);
 std::vector<uint8_t> CreateFakeGpsPacket(uint8_t droneId, double lat, double lon, double alt);
 std::vector<uint8_t> CreateChangeSpeedPacket(uint8_t target_system, float speedType, float speed);
@@ -25,11 +27,15 @@ std::vector<uint8_t> CreateForcedReturnHomePacket(uint8_t target_system);
 std::vector<uint8_t> CreateForcedDisarmPacket(uint8_t target_system);
 std::vector<uint8_t> CreateFlightTerminationPacket(uint8_t target_system);
 std::vector<uint8_t> CreateSetHomePositionPacket(uint8_t target_system, double lat, double lon, double alt);
-std::vector<uint8_t> CreateHeartbeatPacket(uint8_t system_id);
 
-std::vector<std::vector<uint8_t>> CreateComprehensiveSpoofedDronePackets(uint8_t system_id, double lat, double lon, double alt);
+
+// QGC Attacks 
+std::vector<uint8_t> CreateQgcLocationSpoofPacket(uint8_t system_id, double lat, double lon, double alt);
 std::vector<uint8_t> CreateSpoofedBatteryStatusPacket(uint8_t target_system, uint8_t battery_id, uint8_t battery_function, uint8_t battery_type,int16_t temperature, uint16_t voltage, int16_t current_battery, int32_t current_consumed,int32_t energy_consumed, int8_t battery_remaining);
+std::vector<std::vector<uint8_t>> CreateComprehensiveSpoofedDronePackets(uint8_t system_id, double lat, double lon, double alt);
 
+// Network level attacks 
+std::vector<uint8_t> CreateHeartbeatPacket(uint8_t system_id);
 
 void ExecuteFlightTerminationAttack(ns3::Ptr<ns3::Socket> socket);
 void ExecuteForceDisarmAttack(ns3::Ptr<ns3::Socket> socket);
