@@ -34,4 +34,8 @@ include_directories(
   ${PROJECT_SOURCE_DIR}/c_library_v2
 )
 
-add_compile_options(-Wno-pedantic -Wno-address-of-packed-member)
+target_compile_options(scratch_drone-mesh_drone_mesh PRIVATE
+  -Wno-pedantic
+  -Wno-address-of-packed-member
+  -Wno-sign-compare
+)
