@@ -76,7 +76,7 @@ This guide explains how to set up and run **multiple ArduCopter SITL drones** wi
 
 ---
 
-## 1. Modify Source Code 
+## 2. Modify Source Code 
 
 > ⚠️ Before running, make sure to update the NS3 line in `connect.py` depending on your use case — either the normal case or the attacker case.
 > You need to modify both the NS-3 path and, within NS-3, update the path where you want to save the traffic `.pcap` and `.anim` files.
@@ -96,9 +96,28 @@ With Attacker Senario:
 '/your/path/to/ns-3-dev/ns3','run','scratch/drone-mesh-with-attacker/drone_mesh'
 ```
 
+### Enabling Attacks
+
+All attack functions are defined but commented out by default inside:
+`scratch/drone-mesh-with-attacker/main.cc`
+
+To configure which attacks to run uncomment the desired attack and adjust the simulation time at which you want it to occur.
+
+For example, change:
+
+```bash
+//Simulator::Schedule(Seconds(50.0), &ExecuteForceDisarmAttack, attackerSocket);
+```
+
+to:
+```bash
+Simulator::Schedule(Seconds(30.0), &ExecuteForceDisarmAttack, attackerSocket);
+```
+This will run the Forced Disarm attack at 30 seconds of the simulaton instead of 50.
+
 ---
 
-## 2. Launch Gazebo
+## 3. Launch Gazebo
 
 Run Gazebo with the custom multi-drone world:
 ```bash
@@ -108,7 +127,7 @@ And when the 3D simulator opens, press the ▶️ Start button
 
 ---
 
-## 3. Launch QGroundControl
+## 4. Launch QGroundControl
 
 Run QGroundControl in a separate terminal:
 ```bash
@@ -117,7 +136,7 @@ Run QGroundControl in a separate terminal:
 
 ---
 
-## 4. Launch Multiple Drones
+## 5. Launch Multiple Drones
 
 Run each of the following commands inside the ArduPilot directory in separate terminals.
 ⚠️ Make sure to execute them only after launching Gazebo and starting the 3D simulator (▶️ Start button).
