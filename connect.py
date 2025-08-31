@@ -260,7 +260,7 @@ class DroneCommander:
         print("Starting NS-3 simulation in xterm...")
         self.ns3_process = subprocess.Popen([
             'xterm','-hold','-e',
-            '/home/boda/Desktop/ns-3-dev/ns3','run','scratch/drone-mesh/drone_mesh'    # drone-mesh/drone_mesh for NS-3 script
+            '/path/to/change/ns-3-dev/ns3','run','scratch/drone-mesh/drone_mesh'    #Change this according to your ns3 executable path and the scenario you want to run.
         ])
         print(f"NS-3 PID {self.ns3_process.pid}")
 
