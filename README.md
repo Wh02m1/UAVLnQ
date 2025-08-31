@@ -55,22 +55,7 @@ This guide explains how to set up and run **multiple ArduCopter SITL drones** wi
 
 ---
 
-## 2. Run NS3 and Connector
-
-First, activate your Python3.9 virtual environment (recommended) on 2 terminals:  
-```bash
-source drone_env/bin/activate
-```
-
-In first terminal, run the connector:
-```bash
-python connect.py
-```
-
-In secound terminal, run the NS3 parser:
-```bash
-python Mavlink-NS3-Parser.py
-```
+## 1. Modify Source Code 
 
 > ⚠️ Before running, make sure to update the NS3 line in `connect.py` depending on your use case — either the normal case or the attacker case.
 > You need to modify both the NS-3 path and, within NS-3, update the path where you want to save the traffic `.pcap` and `.anim` files.
@@ -92,16 +77,16 @@ With Attacker Senario:
 
 ---
 
-## 3. Launch Gazebo
+## 2. Launch Gazebo
 
 Run Gazebo with the custom multi-drone world:
 ```bash
 gz sim worlds/Custom_3_uav.sdf
 ```
-
+And when the 3D simulator opens, press the ▶️ Start button
 ---
 
-## 4. Launch QGroundControl
+## 3. Launch QGroundControl
 
 Run QGroundControl in a separate terminal:
 ```bash
@@ -110,8 +95,13 @@ Run QGroundControl in a separate terminal:
 
 ---
 
-## 5. Launch Multiple Drones
+## 4. Launch Multiple Drones
+
+Run each of the following commands inside the ArduPilot directory in separate terminals.
+⚠️ Make sure to execute them only after launching Gazebo and starting the 3D simulator (▶️ Start button).
+
 ### Drone 1
+
 ```bash
 sim_vehicle.py -v ArduCopter -f gazebo-iris -I0 --sysid=1 --model JSON --console \
 --out=udp:127.0.0.1:14551 \
@@ -136,6 +126,21 @@ sim_vehicle.py -v ArduCopter -f gazebo-iris -I2 --sysid=3 --model JSON --console
 
 ---
 
+Finally, open two new terminals inside this project directory. In each terminal, activate your Python 3.9 virtual environment (recommended):
+
+```bash
+source drone_env/bin/activate
+```
+
+In first terminal, run the connector:
+```bash
+python connect.py
+```
+
+In secound terminal, run the NS3 parser:
+```bash
+python Mavlink-NS3-Parser.py
+```
 
 
 
