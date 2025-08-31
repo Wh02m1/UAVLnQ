@@ -47,7 +47,7 @@ Overall system architecture with Attacker Sending malformed mavlink packets:
 | 7 | GPS Spoofing (Network Injection)       | `CreateFakeGpsPacket`                  | Sends fake `GPS_RAW_INT` for a legitimate  Real drones (SYSIDs 1-3); spoofs position, altitude, and velocity. |
 | 8 | Heartbeat Flood DoS                    | `CreateHeartbeatPacket`                | Floods the network with many spoofed `HEARTBEAT` frames (e.g., SYSIDs 4–20) to overload links and processing. |
 
-### QGroundControl (GCS)–Focused Attacks
+### QGroundControl (GCS) Attacks
 | # | Attack Name                            | Packet Builder Function(s)            | Description |
 |---|----------------------------------------|----------------------------------------|-------------|
 | 9  | Drone Location Spoofing (UI Deception) | `CreateQgcLocationSpoofPacket`        | Spoofs Real drones (SYSIDs 1-3) positions in QGC by sending fake `GLOBAL_POSITION_INT`, making them appear somewhere else. |
