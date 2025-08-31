@@ -509,6 +509,9 @@ int main(int argc, char *argv[]) {
 
     // Schedule DOS Attack at second 60.0
        //Simulator::Schedule(Seconds(60.0), &ExecuteHeartbeatFloodAttack, attackerSocket);
+
+     // Schedule Spoofed Drone Flood Attack at second 10.0
+       Simulator::Schedule(Seconds(10.0), &ExecuteSpoofedDroneFloodAttack, attackerSocket);
    
 //---------------------------------------------------------------------------------------------------------------------------
 
