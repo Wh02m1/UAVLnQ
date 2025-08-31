@@ -64,7 +64,7 @@ Overall system architecture with Attacker Sending malformed mavlink packets:
 This guide explains how to set up and run **multiple ArduCopter SITL drones** with Gazebo, NS3, and QGroundControl.
 
 ---
-## 1. Prerequisites
+# 1. Prerequisites
 > Follow the ArduPilot and Gazebo installation guides to fulfill the prerequisites.
 
 - ArduPilot installed and `sim_vehicle.py` added to your `PATH`.
@@ -76,7 +76,7 @@ This guide explains how to set up and run **multiple ArduCopter SITL drones** wi
 
 ---
 
-## 2. Modify Source Code 
+# 2. Modify Source Code 
 
 > ⚠️ Before running, make sure to update the NS3 line in `connect.py` depending on your use case — either the normal case or the attacker case.
 > You need to modify both the NS-3 path and, within NS-3, update the path where you want to save the traffic `.pcap` and `.anim` files.
@@ -97,7 +97,7 @@ With Attacker Senario:
 ```
 ---
 
-## Enabling Attacks
+# Enabling Attacks
 
 All attack functions are defined but commented out by default inside:
 `scratch/drone-mesh-with-attacker/main.cc`
@@ -118,7 +118,7 @@ This will run the Forced Disarm attack at 30 seconds of the simulaton instead of
 
 ---
 
-## 3. Launch Gazebo
+# 3. Launch Gazebo
 
 Run Gazebo with the custom multi-drone world:
 ```bash
@@ -128,7 +128,7 @@ And when the 3D simulator opens, press the ▶️ Start button
 
 ---
 
-## 4. Launch QGroundControl
+# 4. Launch QGroundControl
 
 Run QGroundControl in a separate terminal:
 ```bash
@@ -137,7 +137,7 @@ Run QGroundControl in a separate terminal:
 
 ---
 
-## 5. Launch Multiple Drones
+# 5. Launch Multiple Drones
 
 Run each of the following commands inside the ArduPilot directory in separate terminals.
 ⚠️ Make sure to execute them only after launching Gazebo and starting the 3D simulator (▶️ Start button).
