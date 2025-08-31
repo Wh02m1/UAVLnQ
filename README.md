@@ -18,21 +18,31 @@ Each attack creates and injects malicious MAVLink packets into the network to ma
 
 ---
 
-## Attack Scenarios
+## Attack Scenarios 
 
-| #  | Attack Name                       | Packet Creation Function(s)         | Description |
-|----|-----------------------------------|-------------------------------------|-------------|
-| 1  | Malicious Waypoint Injection (Hijack Mission Routes) | `CreateMavlinkMissionPacket` | Injects fake `MISSION_ITEM` messages into a drone. Forces the drone to fly to unintended locations or become isolated. |
-| 2  | False Data Injection (GPS Spoofing – Single Drone) | `CreateFakeGpsPacket` | Sends fake `GPS_RAW_INT` packets for a legitimate drone ID. Spoofs drone's position, altitude, and velocity. |
-| 3  | False Data Injection (Ghost Drones) | `CreateSpoofedDroneGpsPacket` | Generates fake GPS signals for non-existent drones (IDs 4–10). Creates "phantom" UAVs in the swarm, confusing the network. |
-| 4  | Speed Manipulation Attack         | `CreateChangeSpeedPacket`           | Injects `COMMAND_LONG` packets with `MAV_CMD_DO_CHANGE_SPEED`. Forces drones to fly slower/faster, disrupting mission timing. |
-| 5  | Forced Return-to-Launch (RTL)     | `CreateForcedReturnHomePacket`      | Sends a `SET_MODE` MAVLink packet to force drones into RTL mode. Causes premature mission abortion and retreat to home. |
-| 6  | Forced Disarm                     | `CreateForcedDisarmPacket`          | Sends `MAV_CMD_COMPONENT_ARM_DISARM` with the force disarm magic number. Immediately disarms motors mid-flight. |
-| 7  | Flight Termination                | `CreateFlightTerminationPacket`     | Sends `MAV_CMD_DO_FLIGHTTERMINATION`. Causes drones to immediately cut off motors. |
-| 8  | Home Position Hijack              | `CreateSetHomePositionPacket`       | Maliciously sets a drone's home location near the attacker using `MAV_CMD_DO_SET_HOME`. On RTL, drones return to attacker's position. |
-| 9  | Heartbeat Flood DoS               | `CreateHeartbeatPacket`             | Floods the network with MAVLink `HEARTBEAT` messages from multiple spoofed drones (IDs 4–20). Overloads communication and processing. |
-| 10 | Drones Location Spoofing           | `CreateQgcLocationSpoofPacket`              | Spoofs drone positions in QGroundControl by sending fake `GLOBAL_POSITION_INT` messages. |
-| 11 | Battery Status Spoofing           | `CreateSpoofedBatteryStatusPacket`  | Sends fake `BATTERY_STATUS` MAVLink packets to spoof battery percentage and voltage. |
+### Drone SITL Attacks
+| # | Attack Name                            | Packet Builder Function(s)            | Description |
+|---|----------------------------------------|----------------------------------------|-------------|
+| 1 | Malicious Waypoint Injection (Hijack Routes) | `CreateMavlinkMissionPacket`         | Injects fake `MISSION_ITEM` messages so followers fly to unintended waypoints or become isolated. |
+| 2 | Speed Manipulation                     | `CreateChangeSpeedPacket`              | Injects `COMMAND_LONG` with `MAV_CMD_DO_CHANGE_SPEED` to force slower/faster flight, disrupting mission timing. |
+| 3 | Forced Return-to-Launch (RTL)          | `CreateForcedReturnHomePacket`         | Sends a `SET_MODE` to force drones into RTL mode, causing premature mission abortion. |
+| 4 | Forced Disarm                          | `CreateForcedDisarmPacket`             | Sends `MAV_CMD_COMPONENT_ARM_DISARM` with the force-disarm flag; immediately disarms motors mid-flight. |
+| 5 | Flight Termination                     | `CreateFlightTerminationPacket`        | Sends `MAV_CMD_DO_FLIGHTTERMINATION` causing immediate motor cutoff. |
+| 6 | Home Position Hijack                   | `CreateSetHomePositionPacket`          | Maliciously sets home location (near attacker). On RTL, vehicles return to the attacker’s position. |
+
+### Network-Level Attacks
+| # | Attack Name                            | Packet Builder Function(s)            | Description |
+|---|----------------------------------------|----------------------------------------|-------------|
+| 7 | GPS Spoofing (Network Injection)       | `CreateFakeGpsPacket`                  | Sends fake `GPS_RAW_INT` for a legitimate  Real drones (SYSIDs 1-3); spoofs position, altitude, and velocity. |
+| 8 | Heartbeat Flood DoS                    | `CreateHeartbeatPacket`                | Floods the network with many spoofed `HEARTBEAT` frames (e.g., SYSIDs 4–20) to overload links and processing. |
+
+### QGroundControl (GCS)–Focused Attacks
+| # | Attack Name                            | Packet Builder Function(s)            | Description |
+|---|----------------------------------------|----------------------------------------|-------------|
+| 9  | Drone Location Spoofing (UI Deception) | `CreateQgcLocationSpoofPacket`        | Spoofs Real drones (SYSIDs 1-3) positions in QGC by sending fake `GLOBAL_POSITION_INT`, making them appear somewhere else. |
+| 10 | Battery Status Spoofing                | `CreateSpoofedBatteryStatusPacket`     | Spoofs `BATTERY_STATUS` (percentage/voltage). |
+| 11 | Ghost Drones (Fake Fleet Flood)        | `CreateSpoofedDroneGpsPacket`          | Generates non-existent drones (SYSIDs 4–10) so QGC shows “phantom” UAVs. |
+
 
 
 # Installation
