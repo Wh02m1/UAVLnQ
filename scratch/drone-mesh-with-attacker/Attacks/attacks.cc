@@ -750,31 +750,7 @@ void ExecuteHeartbeatFloodAttack(Ptr<Socket> socket) {
         Simulator::Schedule(Seconds(0.05), &ExecuteHeartbeatFloodAttack, socket);
     }
 }
-// Execute drones location spoofing attack
-void ExecuteSpoofDroneGPSAttack(Ptr<Socket> socket) {
-    double Lat = 41.3879;
-    double Lon = 2.16992;
-    double Alt = 60.0;
 
-    // Spoof positions for all drones (system IDs 1, 2, 3) to appear at Barcelona
-    for (uint8_t system_id = 1; system_id <= 3; system_id++) {
-        std::vector<uint8_t> spoofPacket = CreateQgcLocationSpoofPacket(system_id, Lat, Lon, Alt);
-        
-        // Send to ZMQ instead of directly to QGroundControl
-        if (g_commandPublisher) {
-            zmq::message_t zmqMsg(spoofPacket.data(), spoofPacket.size());
-            g_commandPublisher->send(zmqMsg, zmq::send_flags::none);
-        }
-        
-        NS_LOG_INFO("Attacker sent spoofed position for drone " << (int)system_id 
-                    << " to ZMQ at " << Simulator::Now().GetSeconds() << "s");
-    }
-    
-    // Schedule next update (every 0.1 seconds)
-    if (Simulator::Now().GetSeconds() < 180.0) {
-        Simulator::Schedule(Seconds(0.1), &ExecuteSpoofDroneGPSAttack, socket);
-    }
-}
 
 // Execute Speed Change attack
 void ExecuteSpeedManipulationAttack(Ptr<Socket> socket) {
