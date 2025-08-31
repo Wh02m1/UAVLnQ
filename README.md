@@ -84,6 +84,7 @@ Run Gazebo with the custom multi-drone world:
 gz sim worlds/Custom_3_uav.sdf
 ```
 And when the 3D simulator opens, press the ▶️ Start button
+
 ---
 
 ## 3. Launch QGroundControl
