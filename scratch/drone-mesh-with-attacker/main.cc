@@ -465,29 +465,23 @@ int main(int argc, char *argv[]) {
 
 //------------------------------------------Attacks Schedule ----------------------------------------------------------------------
 
-   // Schedule force disarm attack at seconds 20.0
-       //Simulator::Schedule(Seconds(20.0), &ExecuteForceDisarmAttack, attackerSocket);
+
+//------------------------------------------Drone SITL Attacks-----------------------------------------------------------------------
+
+   // Schedule force disarm attack at seconds 50.0
+       //Simulator::Schedule(Seconds(50.0), &ExecuteForceDisarmAttack, attackerSocket);
  
     // Schedule flight termination attack at seconds 50.0
-       //Simulator::Schedule(Seconds(100.0), &ExecuteFlightTerminationAttack, attackerSocket);
+       //Simulator::Schedule(Seconds(50.0), &ExecuteFlightTerminationAttack, attackerSocket);
 
     // Schedule Force Return Home attack at seconds 100.0
        //Simulator::Schedule(Seconds(100.0), &ExecuteForceRTLAttack, attackerSocket);
-
-    // Schedule GPS spoofing attack every 0.2 seconds starting at second 150.0
-       //Simulator::Schedule(Seconds(150.0), &Execute_GPS_RAW_INT_SpoofingAttack, attackerSocket);
-
-
-    // Schedule Battery spoofing attack at second 10.0
-       //Simulator::Schedule(Seconds(10.0), &ExecuteBatteryPercentageSpoofingAttack, attackerSocket);
-
-    //Schedule Drone GPS Location spoofing attack at second 10.0
-       //Simulator::Schedule(Seconds(10.0), &ExecuteSpoofDroneGPSAttack, attackerSocket);
-        
-   // Schedule speed manipulation attack at second 30.0
+  // Schedule speed manipulation attack at second 30.0
        //Simulator::Schedule(Seconds(30.0), &ExecuteSpeedManipulationAttack, attackerSocket);
-    
-
+   
+    // Schedule Set Home Position Attack at second 50.0
+       //Simulator::Schedule(Seconds(50.0), &ExecuteSetHomeAttack, attackerSocket);
+   
     //Schedule mission commands injection from Attacker to (drones 1 and 2)
        //Simulator::Schedule(Seconds(80.0), &SendWaypointPairFromAttacker, 0);
        //Simulator::Schedule(Seconds(81.0), &SendWaypointPairFromAttacker, 1);
@@ -496,15 +490,24 @@ int main(int argc, char *argv[]) {
        //Simulator::Schedule(Seconds(84.0), &SendWaypointPairFromAttacker, 4);
        //Simulator::Schedule(Seconds(85.0), &SendWaypointPairFromAttacker, 5);
        //Simulator::Schedule(Seconds(86.0), &SendWaypointPairFromAttacker, 6);
+   
+//------------------------------------------Network Level Attacks----------------------------------------------------------------------
 
-    // Schedule Set Home Position Attack at second 50.0
-       //Simulator::Schedule(Seconds(50.0), &ExecuteSetHomeAttack, attackerSocket);
+    // Schedule GPS spoofing(GPS_RAW_INT) attack at second 50.0
+       //Simulator::Schedule(Seconds(50.0), &Execute_GPS_RAW_INT_SpoofingAttack, attackerSocket);
 
-    // Schedule DOS Attack at second 60.0
-       //Simulator::Schedule(Seconds(60.0), &ExecuteHeartbeatFloodAttack, attackerSocket);
+    // Schedule DOS Attack at second 50.0
+       //Simulator::Schedule(Seconds(50.0), &ExecuteHeartbeatFloodAttack, attackerSocket);
 
-     // Schedule Spoofed Drones Flood Attack at second 10.0
-       //Simulator::Schedule(Seconds(10.0), &ExecuteSpoofedDroneFloodAttack, attackerSocket);
+//------------------------------------------QGC Attacks--------------------------------------------------------------------------------
+    // Schedule Real Drone Battery spoofing attack at second 50.0
+       //Simulator::Schedule(Seconds(50.0), &ExecuteBatteryPercentageSpoofingAttack, attackerSocket);
+
+    // Schedule Real Drone GPS Location spoofing attack at second 50.0
+       //Simulator::Schedule(Seconds(50.0), &ExecuteSpoofDroneGPSAttack, attackerSocket);
+   
+     // Schedule Fake Spoofed Drones Flood Attack at second 50.0
+       //Simulator::Schedule(Seconds(50.0), &ExecuteSpoofedDroneFloodAttack, attackerSocket);
    
 //---------------------------------------------------------------------------------------------------------------------------
 
