@@ -349,6 +349,7 @@ pip install dronekit pymavlink pyzmq
 NetAnim is a visualization tool for NS-3 that allows you to view drone mobility, connectivity, and data exchange over time using the generated `.anim` files.
 These `.anim` files are automatically created after the simulation finishes and can be opened in NetAnim to visualize the results.
 
+
 1. Install Qt5 (required for NetAnim)
 
 ```bash
