@@ -599,7 +599,7 @@ void ExecuteGpsSpoofingAttack(Ptr<Socket> socket) {
     Simulator::Schedule(Seconds(0.2), &ExecuteGpsSpoofingAttack, socket);
 }
 
-/ Attack execution function
+// Attack execution function
 // This function floods the network with spoofed droness GPS packets for non-existent drones
 // It creates fake GPS packets for drones with system IDs 4 to 10 and sends them
 // its also send to broadcast address to reach all drones in the network
