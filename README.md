@@ -140,7 +140,7 @@ Run QGroundControl in a separate terminal:
 # 5. Launch Multiple Drones
 
 Run each of the following commands inside the ArduPilot directory in separate terminals.
-⚠️ Make sure to execute them only after launching Gazebo and starting the 3D simulator (▶️ Start button).
+<br/>⚠️Make sure to execute them only after launching Gazebo and starting the 3D simulator (▶️ Start button).
 
 ### Drone 1
 
