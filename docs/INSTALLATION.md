@@ -240,8 +240,7 @@ git clone https://github.com/mavlink/c_library_v2
 ./ns3 configure
 ./ns3 build
 ```
-
-- If the use case setup has not been done yet, skip to that section. Once ready, the two use cases can be run with the following commands:
+>If the use case setup has not been done yet, skip to that section. Once ready, the two use cases can be run with the following commands:
 
 1. To run the main ns3 topology without the attacker 
 ```bash
@@ -265,13 +264,13 @@ cd UAVLnQ
 
 Before running the simulations, update the paths in the following files to specify where the PCAP files should be saved:
 
-<pre> scratch/drone-mesh/main.cc 
-scratch/drone-mesh-with-attack/main.cc </pre>
+<pre>scratch/drone-mesh/main.cc 
+scratch/drone-mesh-with-attack/main.cc</pre>
 
 Look for the paths:
 
-<pre> /home/boda/Desktop/Final-DroneNS3/ns3-output/drone-mesh- 
-/home/boda/Desktop/Final-DroneNS3/ns3-output/drone-mesh-anim_ </pre>
+<pre>/home/boda/Desktop/Final-DroneNS3/ns3-output/drone-mesh- 
+/home/boda/Desktop/Final-DroneNS3/ns3-output/drone-mesh-anim_</pre>
 
 and change them to the desired location for saving PCAP and anim files.
 
