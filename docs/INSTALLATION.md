@@ -1,11 +1,11 @@
 # UAVLnQ Installation Guide
 Simulation Environment:
 
-**ArduPilot**: 4.6.0
-**Gazebo**: Harmonic
-**QGroundControl**: 5.0.6 (64-bit)
-**NS-3**: 3.45
-**OS**: Ubuntu 24.04.2 LTS
+**ArduPilot**: 4.6.0<br/>
+**Gazebo**: Harmonic<br/>
+**QGroundControl**: 5.0.6 (64-bit)<br/>
+**NS-3**: 3.45<br/>
+**OS**: Ubuntu 24.04.2 LTS<br/>
 
 This guide provides a step-by-step walkthrough for setting up the UAV simulation environment used in this repository.
 
