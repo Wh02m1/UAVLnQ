@@ -269,8 +269,8 @@ scratch/drone-mesh-with-attack/main.cc</pre>
 
 Look for the paths:
 
-<pre>/home/boda/Desktop/Final-DroneNS3/ns3-output/drone-mesh- 
-/home/boda/Desktop/Final-DroneNS3/ns3-output/drone-mesh-anim_</pre>
+<pre>/path/to/change//drone-mesh-
+/path/to/change/drone-mesh-anim_</pre>
 
 and change them to the desired location for saving PCAP and anim files.
 
