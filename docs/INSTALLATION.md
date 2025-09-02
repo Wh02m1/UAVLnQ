@@ -11,8 +11,7 @@ This guide provides a step-by-step walkthrough for setting up the UAV simulation
 
 Tested on:  
 - **Ubuntu 24.04.2 LTS**  
-- Works on both **VMware VM** and **native laptop installation**  
-- **VMware** → Enable 3D acceleration, allocate ≥4 CPU cores & 8 GB RAM
+- Works on **native laptop installation**  
 ---
 
 ## Table of Contents
