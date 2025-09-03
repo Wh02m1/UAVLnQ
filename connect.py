@@ -95,7 +95,7 @@ def publish_drone_mavlink(vehicles):
         time.sleep(0.05)
 
 
-class DynamicMissionController:
+class DroneCommander:
     """Controller for executing queued commands for a single drone."""
     def __init__(self, vehicle, drone_id):
         self.vehicle = vehicle
@@ -338,7 +338,7 @@ class DroneCommander:
         print("Starting drone missions…")
         for idx, vehicle in enumerate(self.vehicles):
             drone_id = idx+1
-            ctrl = DynamicMissionController(vehicle, drone_id)
+            ctrl = DroneCommander(vehicle, drone_id)
             self.controllers.append(ctrl)
 
             # Start watchdog on mission file FIRST
