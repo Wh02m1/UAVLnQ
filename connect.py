@@ -206,7 +206,7 @@ class DroneCommander:
             time.sleep(0.5)
 
 
-class DroneCommander:
+class DynamicMissionController:
     """Main orchestrator for all drones and mission logic."""
     def __init__(self):
         self.vehicles = []
@@ -338,7 +338,7 @@ class DroneCommander:
         print("Starting drone missions…")
         for idx, vehicle in enumerate(self.vehicles):
             drone_id = idx+1
-            ctrl = DroneCommander(vehicle, drone_id)
+            ctrl = DynamicMissionController(vehicle, drone_id)
             self.controllers.append(ctrl)
 
             # Start watchdog on mission file FIRST
