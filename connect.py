@@ -95,7 +95,7 @@ def publish_drone_mavlink(vehicles):
         time.sleep(0.05)
 
 
-class DroneCommander:
+class SingleDroneController:
     """Controller for executing queued commands for a single drone."""
     def __init__(self, vehicle, drone_id):
         self.vehicle = vehicle
@@ -403,7 +403,7 @@ class DynamicMissionController:
 
 if __name__ == "__main__":
     # Entry point: connect drones, start missions, cleanup on exit
-    commander = DroneCommander()
+    commander = SingleDroneController()
     try:
         commander.connect_drones()
         print(">> Waiting 5s before starting mission…")
