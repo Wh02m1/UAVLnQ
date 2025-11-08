@@ -1,0 +1,25 @@
+{
+  "Drones_config": [
+    {
+      "id": 1,
+      "dronekit_connection": "udp:127.0.0.1:14551",
+      "mavlink_connection": "udp:127.0.0.1:14552",
+      "mavlink_parser_connection": "udp:127.0.0.1:14553",
+      "qgroundcontrol_port": 14550
+    },
+    {
+      "id": 2,
+      "dronekit_connection": "udp:127.0.0.1:14561",
+      "mavlink_connection": "udp:127.0.0.1:14562",
+      "mavlink_parser_connection": "udp:127.0.0.1:14563",
+      "qgroundcontrol_port": 14560
+    },
+    {
+      "id": 3,
+      "dronekit_connection": "udp:127.0.0.1:14571",
+      "mavlink_connection": "udp:127.0.0.1:14572",
+      "mavlink_parser_connection": "udp:127.0.0.1:14573",
+      "qgroundcontrol_port": 14570
+    }
+  ]
+}
