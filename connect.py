@@ -248,26 +248,30 @@ class DroneCommander:
         except Exception as e:
             print(f"Failed to connect to drone {index+1} ({conn_str}): {e}")
 
-    def connect_drones(self):
-        """Connect to all drones in parallel."""
-        print("Connecting to drones in parallel...")
-        connected = [None]*len(CONNECTION_STRINGS_Dronekit)
-        threads = []
-        for i, cs in enumerate(CONNECTION_STRINGS_Dronekit):
-            t = threading.Thread(target=self.connect_single_drone,
-                                 args=(i, cs, connected))
-            t.start(); threads.append(t)
-        for t in threads: t.join()
-
-        self.vehicles = [v for v in connected if v]
-        print(f"Total drones connected: {len(self.vehicles)}")
-
-        # Start position publishing thread
-        if self.vehicles:
-            t = threading.Thread(target=publish_drone_mavlink,
-                                 args=(self.vehicles,), daemon=True)
-            t.start()
-            print("Started drone position publishing thread")
+    def connect_drones(self, batch_size=5):
+        """Connect to all drones in batches to avoid resource exhaustion."""
+        print(f"Connecting to drones in batches of {batch_size}...")
+        connected = [None] * len(CONNECTION_STRINGS_Dronekit)
+        
+        # Process drones in batches
+        for batch_start in range(0, len(CONNECTION_STRINGS_Dronekit), batch_size):
+            batch_end = min(batch_start + batch_size, len(CONNECTION_STRINGS_Dronekit))
+            print(f"Connecting batch: drones {batch_start+1} to {batch_end}")
+            
+            threads = []
+            for i in range(batch_start, batch_end):
+                cs = CONNECTION_STRINGS_Dronekit[i]
+                t = threading.Thread(target=self.connect_single_drone,
+                                    args=(i, cs, connected))
+                t.start()
+                threads.append(t)
+            
+            # Wait for current batch to complete
+            for t in threads:
+                t.join()
+            
+            print(f"Batch {batch_start//batch_size + 1} completed")
+            time.sleep(1)  # Brief pause between batches
 
     def start_ns3(self):
         """Start NS-3 simulation in a new xterm window."""
