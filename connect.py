@@ -276,11 +276,11 @@ class DroneCommander:
         # get number of drones from the JSON you already loaded at top
         drones_count = len(drones)   # number to pass to ns-3
 
-        ns3_bin = "/home/boda/Desktop/ns-3-dev/build/scratch/NS3-Multi-Drone/ns3.44-NS3-Multi-Drone-default"
+        ns3_bin = "/home/boda/Desktop/ns-3-dev/build/scratch/NS3-Multi-Drone/ns3.44-NS3-Multi-Drone-default"  # Change this based on your ns3 executalbe script path
 
         self.ns3_process = subprocess.Popen([
             "xterm", "-hold", "-e",
-            ns3_bin, f"--n={drones_count}"
+            ns3_bin, f"--n={drones_count}"  # Since the environment is scalable, the number of drones should be specified as a parameter in NS-3.
         ])
 
         print(f"NS-3 PID {self.ns3_process.pid}, started with --n={drones_count}")
