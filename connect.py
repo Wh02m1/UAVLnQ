@@ -11,6 +11,7 @@ import subprocess
 import zmq
 import os
 import queue
+import json 
 
 
 # ZMQ Setup for position publishing
@@ -18,19 +19,32 @@ context = zmq.Context()
 position_publisher = context.socket(zmq.PUB)
 position_publisher.bind("tcp://*:5556")
 
+
+with open("drones_config.json") as f:
+    config_file = json.load(f)
+
+drones = config_file["Drones_config"]
+CONNECTION_STRINGS_Dronekit = [d["dronekit_connection"] for d in drones]
+CONNECTION_STRINGS_Mavlink = [d["mavlink_connection"] for d in drones]
+
+
+
+# This was used for hardcoded connections before config file approach
 # Connection IP and port for each drone running in Ardupilot for DroneKit
-CONNECTION_STRINGS_Dronekit = [
-    'udp:127.0.0.1:14551',   # Drone 1
-    'udp:127.0.0.1:14561',   # Drone 2
-    'udp:127.0.0.1:14571'    # Drone 3
-]
+#CONNECTION_STRINGS_Dronekit = [
+ #   'udp:127.0.0.1:14551',   # Drone 1
+  #  'udp:127.0.0.1:14561',   # Drone 2
+   # 'udp:127.0.0.1:14571'    # Drone 3
+#]
 
 # Connection IP and port for each drone running in Ardupilot to forward Mavlink packets (GPS_RAW_INT)
-CONNECTION_STRINGS_Mavlink = [
-    'udp:127.0.0.1:14552',   # Drone 1
-    'udp:127.0.0.1:14562',   # Drone 2
-    'udp:127.0.0.1:14572'    # Drone 3
-]
+#CONNECTION_STRINGS_Mavlink = [
+ #   'udp:127.0.0.1:14552',   # Drone 1
+  #  'udp:127.0.0.1:14562',   # Drone 2
+   # 'udp:127.0.0.1:14572'    # Drone 3
+#]
+
+
 
 # Connect to drones via MAVLink
 mav_connections = []
@@ -95,7 +109,7 @@ def publish_drone_mavlink(vehicles):
         time.sleep(0.05)
 
 
-class SingleDroneController:
+class DynamicMissionController:
     """Controller for executing queued commands for a single drone."""
     def __init__(self, vehicle, drone_id):
         self.vehicle = vehicle
@@ -258,11 +272,19 @@ class DroneCommander:
     def start_ns3(self):
         """Start NS-3 simulation in a new xterm window."""
         print("Starting NS-3 simulation in xterm...")
+
+        # get number of drones from the JSON you already loaded at top
+        drones_count = len(drones)   # number to pass to ns-3
+
+        ns3_bin = "/home/boda/Desktop/ns-3-dev/build/scratch/NS3-Multi-Drone/ns3.44-NS3-Multi-Drone-default"
+
         self.ns3_process = subprocess.Popen([
-            'xterm','-hold','-e',
-            '/path/to/change/ns-3-dev/ns3','run','scratch/drone-mesh/drone_mesh'    #Change this according to your ns3 executable path and the scenario you want to run.
+            "xterm", "-hold", "-e",
+            ns3_bin, f"--n={drones_count}"
         ])
-        print(f"NS-3 PID {self.ns3_process.pid}")
+
+        print(f"NS-3 PID {self.ns3_process.pid}, started with --n={drones_count}")
+
 
     def watchdog(self, drone_id, controller, stop_event):
         """Monitor mission file and queue new waypoints for the drone."""
@@ -338,7 +360,7 @@ class DroneCommander:
         print("Starting drone missions…")
         for idx, vehicle in enumerate(self.vehicles):
             drone_id = idx+1
-            ctrl = DroneCommander(vehicle, drone_id)
+            ctrl = DynamicMissionController(vehicle, drone_id)
             self.controllers.append(ctrl)
 
             # Start watchdog on mission file FIRST
@@ -403,7 +425,7 @@ class DroneCommander:
 
 if __name__ == "__main__":
     # Entry point: connect drones, start missions, cleanup on exit
-    commander = SingleDroneController()
+    commander = DroneCommander()
     try:
         commander.connect_drones()
         print(">> Waiting 5s before starting mission…")
