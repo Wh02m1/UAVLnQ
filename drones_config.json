@@ -21,5 +21,9 @@
       "mavlink_parser_connection": "udp:127.0.0.1:14573",
       "qgroundcontrol_port": 14570
     }
-  ]
+  ],
+  "NS3_config": {
+    "ns3_bin": "/home/boda/Desktop/ns-3-dev/build/scratch/NS3-Multi-Drone/ns3.44-NS3-Multi-Drone-default",
+    "parameters": "--n=3"
+  }
 }
