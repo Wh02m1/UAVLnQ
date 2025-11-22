@@ -23,7 +23,7 @@
     }
   ],
   "NS3_config": {
-    "ns3_bin": "/home/boda/Desktop/ns-3-dev/build/scratch/NS3-Multi-Drone/ns3.44-NS3-Multi-Drone-default",
+    "ns3_bin": "/Path/To/ns-3-dev/build/scratch/NS3-Multi-Drone/ns3.44-NS3-Multi-Drone-default",
     "parameters": "--n=3"
   }
 }
