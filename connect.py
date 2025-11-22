@@ -1,7 +1,5 @@
-# Main drone mission orchestration script
-# Connects to multiple drones, manages mission execution, and handles return/landing logic
-
 from dronekit import connect, VehicleMode
+from mission import MissionController
 from mission_commands import MoveToWaypoint, Sleep, ReturnHome, Land
 from data_logger import DataLogger
 from pymavlink import mavutil
@@ -12,7 +10,6 @@ import zmq
 import os
 import queue
 import json 
-
 
 # ZMQ Setup for position publishing
 context = zmq.Context()
@@ -27,24 +24,16 @@ drones = config_file["Drones_config"]
 CONNECTION_STRINGS_Dronekit = [d["dronekit_connection"] for d in drones]
 CONNECTION_STRINGS_Mavlink = [d["mavlink_connection"] for d in drones]
 
+#ns3_bin = "/home/boda/Desktop/ns-3-dev/build/scratch/NS3-Multi-Drone/ns3.44-NS3-Multi-Drone-default"
+#ns3_bin = "/home/boda/Desktop/ns-3-dev/build/scratch/drone-mesh/ns3.44-drone_mesh-default"
 
-
-# This was used for hardcoded connections before config file approach
-# Connection IP and port for each drone running in Ardupilot for DroneKit
-#CONNECTION_STRINGS_Dronekit = [
- #   'udp:127.0.0.1:14551',   # Drone 1
-  #  'udp:127.0.0.1:14561',   # Drone 2
-   # 'udp:127.0.0.1:14571'    # Drone 3
-#]
-
-# Connection IP and port for each drone running in Ardupilot to forward Mavlink packets (GPS_RAW_INT)
-#CONNECTION_STRINGS_Mavlink = [
- #   'udp:127.0.0.1:14552',   # Drone 1
-  #  'udp:127.0.0.1:14562',   # Drone 2
-   # 'udp:127.0.0.1:14572'    # Drone 3
-#]
-
-
+# Get NS-3 configuration from JSON
+try:
+    ns3_config = config_file["NS3_config"]
+    ns3_bin = ns3_config["ns3_bin"]          # required in JSON
+    ns3_parameters = ns3_config["parameters"]  # required in JSON
+except KeyError as e:
+    raise RuntimeError(f"Missing NS3_config field in drones_config.json: {e}")
 
 # Connect to drones via MAVLink
 mav_connections = []
@@ -55,8 +44,7 @@ for conn_str in CONNECTION_STRINGS_Mavlink:
     print(f"Connected to MAVLink on {conn_str}")
 
 
-
-def publish_drone_mavlink(vehicles):
+def publish_drone_mavlink():
     """
     Continuously capture GPS_RAW_INT and SYS_STATUS and HEARTBEAT messages from each drone
     and send raw MAVLink packets via ZMQ.
@@ -93,7 +81,7 @@ def publish_drone_mavlink(vehicles):
                 # Send the payload over ZMQ PUB socket
                 position_publisher.send(payload)
                 
-            # NEW: Try to receive HEARTBEAT message (non-blocking)
+            # Try to receive HEARTBEAT message (non-blocking)
             heartbeat_msg = master.recv_match(type='HEARTBEAT', blocking=False)
             if heartbeat_msg:
                 # Get the raw MAVLink-encoded byte buffer for the message
@@ -102,8 +90,6 @@ def publish_drone_mavlink(vehicles):
                 payload = bytes([2, drone_id]) + raw_bytes
                 # Send the payload over ZMQ PUB socket
                 position_publisher.send(payload)
-                # NEW: Log heartbeat for debugging
-                print(f"Drone {drone_id+1}: Heartbeat forwarded")
                 
         # Small delay to avoid overwhelming CPU
         time.sleep(0.05)
@@ -170,7 +156,7 @@ class DynamicMissionController:
                 if self.current_command.is_done():
                     cmd = self.current_command
                     print(f"Drone {self.drone_id}: {type(cmd).__name__} completed")
-                    # If this was Drone 1’s Land, signal mission complete
+                    # If this was Drone 1's Land, signal mission complete
                     if self.complete_pub and isinstance(cmd, Land):
                         print("Drone 1: Land done — publishing MISSION_COMPLETE")
                         self.complete_pub.send_string("MISSION_COMPLETE")
@@ -221,32 +207,30 @@ class DynamicMissionController:
 
 
 class DroneCommander:
-    """Main orchestrator for all drones and mission logic."""
     def __init__(self):
-        self.vehicles = []
-        self.controllers = []           # Keep refs to all controllers
-        self.threads = []
+        self.vehicles = []   # List of connected drone objects
+        self.controllers = []  # Dynamic mission controllers
+        self.threads = []    # Mission execution threads
         self.watchdog_threads = []
         self.watchdog_stop_events = []
         self.ns3_process = None
 
-        # Listen for Drone 1’s mission-complete
+        # Listen for Drone 1's mission-complete
         self.complete_sub = context.socket(zmq.SUB)
         self.complete_sub.connect("tcp://localhost:5560")
         self.complete_sub.setsockopt_string(zmq.SUBSCRIBE, "")
 
     def connect_single_drone(self, index, conn_str, connected_vehicles):
-        """Connect to a single drone and wait until armable."""
         try:
             vehicle = connect(conn_str, wait_ready=True, heartbeat_timeout=60)
-            print(f"Connected to drone {index+1}, waiting for armable state...")
+            print(f"Connected to drone {index + 1}, waiting for armable state...")
             while not vehicle.is_armable:
-                print(f"Drone {index+1}: Waiting to become armable...")
+                print(f"Drone {index + 1}: Waiting to become armable...")
                 time.sleep(1)
             connected_vehicles[index] = vehicle
-            print(f"Drone {index+1} connected and armable at {conn_str}")
+            print(f"Drone {index + 1} connected and armable at {conn_str}")
         except Exception as e:
-            print(f"Failed to connect to drone {index+1} ({conn_str}): {e}")
+            print(f"Failed to connect to drone {index + 1} ({conn_str}): {e}")
 
     def connect_drones(self, batch_size=5):
         """Connect to all drones in batches to avoid resource exhaustion."""
@@ -272,23 +256,28 @@ class DroneCommander:
             
             print(f"Batch {batch_start//batch_size + 1} completed")
             time.sleep(1)  # Brief pause between batches
+        
+        # Transfer connected vehicles to self.vehicles
+        self.vehicles = [v for v in connected if v is not None]
+        print(f"Successfully connected to {len(self.vehicles)} drones")
 
     def start_ns3(self):
-        """Start NS-3 simulation in a new xterm window."""
+        """Launch NS-3 simulation inside an xterm window"""
         print("Starting NS-3 simulation in xterm...")
 
-        # get number of drones from the JSON you already loaded at top
-        drones_count = len(drones)   # number to pass to ns-3
+        # Get drone count from the JSON
+        drones_count = len(drones)
 
-        ns3_bin = "/home/boda/Desktop/ns-3-dev/build/scratch/NS3-Multi-Drone/ns3.44-NS3-Multi-Drone-default"  # Change this based on your ns3 executalbe script path
-
+        # Use NS-3 configuration from JSON
+        print(f"NS-3 binary: {ns3_bin}")
+        print(f"NS-3 parameters: {ns3_parameters}")
+        
         self.ns3_process = subprocess.Popen([
             "xterm", "-hold", "-e",
-            ns3_bin, f"--n={drones_count}"  # Since the environment is scalable, the number of drones should be specified as a parameter in NS-3.
+            ns3_bin, ns3_parameters
         ])
 
-        print(f"NS-3 PID {self.ns3_process.pid}, started with --n={drones_count}")
-
+        print(f"NS-3 PID {self.ns3_process.pid}, started with parameters: {ns3_parameters}")
 
     def watchdog(self, drone_id, controller, stop_event):
         """Monitor mission file and queue new waypoints for the drone."""
@@ -332,12 +321,12 @@ class DroneCommander:
                 time.sleep(1)
 
     def _handle_mission_complete(self):
-        """When Drone 1 lands, queue RTL+LAND on drones 2 & 3."""
+        """When Drone 1 lands, queue RTL+LAND on other drones."""
         while True:
             try:
                 msg = self.complete_sub.recv_string(zmq.NOBLOCK)
                 if msg == "MISSION_COMPLETE":
-                    print("Commander: Received MISSION_COMPLETE → ordering drones 2 & 3 to RTL+LAND")
+                    print("Commander: Received MISSION_COMPLETE → ordering other drones to RTL+LAND")
                     for ctrl in self.controllers[1:]:
                         ctrl.add_command(ReturnHome(ctrl.vehicle))
                         ctrl.add_command(Land(ctrl.vehicle))
@@ -348,22 +337,30 @@ class DroneCommander:
                 time.sleep(1)
 
     def start_missions(self):
-        """Start NS-3, then start mission and watchdog threads for all drones."""
+        """Execute missions on all drones concurrently"""
         if not self.vehicles:
-            print("No drones connected. Abort.")
+            print("No drones connected. Aborting missions.")
             return
 
-        print("Starting NS-3 simulation before missions…")
+        print("\nStarting NS-3 simulation before missions...")
         self.start_ns3()
-        time.sleep(2)
+        time.sleep(2)  # Give NS-3 a moment to start
 
-        # Start listener for Drone 1’s completion
+        # Start MAVLink publishing thread
+        print("Starting MAVLink publisher...")
+        mavlink_thread = threading.Thread(
+            target=publish_drone_mavlink,
+            daemon=True
+        )
+        mavlink_thread.start()
+
+        # Start listener for Drone 1's completion
         threading.Thread(target=self._handle_mission_complete,
                          daemon=True).start()
 
-        print("Starting drone missions…")
+        print("\nStarting drone missions...")
         for idx, vehicle in enumerate(self.vehicles):
-            drone_id = idx+1
+            drone_id = idx + 1
             ctrl = DynamicMissionController(vehicle, drone_id)
             self.controllers.append(ctrl)
 
@@ -389,11 +386,12 @@ class DroneCommander:
         for t in self.threads:
             t.join()
 
-        print("All mission threads have exited.")
+        print("All missions completed or stopped.")
 
     def cleanup(self):
-        """Cleanup all resources and safely close drones and ZMQ."""
-        print("Cleaning up…")
+        """Clean up resources when missions are complete"""
+        print("Cleaning up resources...")
+
         # Stop filesystem watchdogs
         for ev in self.watchdog_stop_events:
             ev.set()
@@ -402,37 +400,37 @@ class DroneCommander:
         for ctrl in self.controllers:
             ctrl.stop()
 
-        # Terminate NS-3
+        # Terminate NS-3 simulation if still running
         if self.ns3_process and self.ns3_process.poll() is None:
-            print("Terminating NS-3…")
+            print("Terminating NS-3 simulation...")
             self.ns3_process.terminate()
             self.ns3_process.wait()
 
-        # Close vehicles
-        for v in self.vehicles:
+        # Close all vehicles
+        for vehicle in self.vehicles:
             try:
-                if v.armed:
-                    v.mode = VehicleMode("LAND")
+                if vehicle.armed:
+                    vehicle.mode = VehicleMode("LAND")
                     time.sleep(1)
-                v.close()
+                vehicle.close()
             except Exception as e:
                 print(f"Error closing vehicle: {e}")
-
-        # Teardown ZMQ
+        
+        # Close ZMQ connections
         try:
             position_publisher.close()
             self.complete_sub.close()
             context.term()
+            print("ZMQ connections closed")
         except Exception as e:
             print(f"Error closing ZMQ: {e}")
 
 
 if __name__ == "__main__":
-    # Entry point: connect drones, start missions, cleanup on exit
     commander = DroneCommander()
     try:
         commander.connect_drones()
-        print(">> Waiting 5s before starting mission…")
+        print(">> Waiting 5 seconds before starting missions...")
         time.sleep(5)
         commander.start_missions()
     finally:
