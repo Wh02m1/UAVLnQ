@@ -538,12 +538,12 @@ int main(int argc, char *argv[]) {
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);
     std::ostringstream oss;
-    oss << "drone-mesh-"
+    oss << "ns3-output/multi-drone-mesh-" // Change this to where you want to save the PCAP files
         << std::put_time(&tm, "%Y%m%d_%H%M%S");
     std::string outputPrefix = oss.str();
 
     std::ostringstream animOss;
-    animOss << "drone-mesh-anim_"
+    animOss << "ns3-output/multi-drone-mesh-anim_"  // Change this to where you want to save the anim output 
             << std::put_time(&tm, "%Y%m%d_%H%M%S") << ".xml";
     std::string animFile = animOss.str();
 
