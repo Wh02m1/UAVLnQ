@@ -12,15 +12,13 @@ subscriber = context.socket(zmq.SUB)
 subscriber.connect("tcp://localhost:5555")
 subscriber.setsockopt(zmq.SUBSCRIBE, b"")
 
+# Load configuration
 with open("drones_config.json") as f:
     config_file = json.load(f)
 
 drones_cfg = config_file["Drones_config"]
 
 # Setup UDP sockets for QGroundControl instances
-
-# Real drones System id (1-3) use standard ports
-
 qgc_sockets = {}
 qgc_addresses = {}
 
@@ -33,11 +31,13 @@ for d in drones_cfg:
 
 print("Mavlink Parser Connected to ZMQ tcp://localhost:5555")
 print(f"Forwarding messages to QGroundControl instances:")
+for d in drones_cfg:
+    print(f"  Drone {d['id']} -> QGC port {d['qgroundcontrol_port']}")
 
 # MAVLink parser
 mav = mavutil.mavlink.MAVLink(None)
 
-# Drone connection strings (SITL endpoints) - only for real drones (1-3)
+# Drone connection strings (SITL endpoints)
 CONNECTION_STRINGS = [d["mavlink_parser_connection"] for d in drones_cfg]
 
 # Dictionary to store live connections
@@ -66,12 +66,12 @@ def drone_thread(drone_id, conn_str):
         with connection_lock:
             drone_connections.pop(drone_id, None)
 
-# Start a thread for each drone connection (only real drones 1-3)
+# Start a thread for each drone connection
 for d in drones_cfg:
     t = threading.Thread(target=drone_thread, args=(d["id"], d["mavlink_parser_connection"]), daemon=True)
     t.start()
 
-print("Waiting for MAVLink Commands...")
+print("\nWaiting for MAVLink Commands...")
 while True:
     try:
         raw_data = subscriber.recv(zmq.NOBLOCK)
@@ -92,8 +92,9 @@ while True:
             if source_system in qgc_addresses:
                 qgc_sockets[source_system].sendto(raw_data, qgc_addresses[source_system])
             else:
-                for sid, addr in qgc_addresses.items():
-                    qgc_sockets[sid].sendto(raw_data, addr)
+                # If unknown source system, forward to all QGC instances
+                for sid in qgc_sockets:
+                    qgc_sockets[sid].sendto(raw_data, qgc_addresses[sid])
                 
     except Exception as e:
         print(f"[X] Failed to parse MAVLink buffer: {e}")
@@ -113,7 +114,7 @@ while True:
             # mavlink.MAV_CMD_DO_CHANGE_SPEED for changing drone speed
             # mavutil.mavlink.MAV_CMD_DO_SET_HOME for setting home position 
             if msg.get_msgId() == mavutil.mavlink.MAVLINK_MSG_ID_COMMAND_LONG:
-                drone_id = int(msg.target_system) 
+                drone_id = int(msg.target_system)
                 if drone_id in drone_connections:
                     with connection_lock:
                         conn = drone_connections.get(drone_id)
@@ -138,7 +139,7 @@ while True:
                     else:
                         print(f"Connection for Drone {drone_id} not found.")
                 else:
-                    print(f"Ignoring command for spoofed drone {drone_id}")
+                    print(f"Drone {drone_id} not in active connections")
 
             # Send the Set mode commands to drone
             if msg.get_msgId() == mavutil.mavlink.MAVLINK_MSG_ID_SET_MODE:
@@ -159,7 +160,7 @@ while True:
                     else:
                         print(f"Connection for Drone {drone_id} not found.")
                 else:
-                    print(f"Ignoring mode change for spoofed drone {drone_id}")
+                    print(f"Drone {drone_id} not in active connections")
 
             # This is for the attack to inject a MISSION_ITEM into the drone's mission plan
             if msg.get_msgId() == mavutil.mavlink.MAVLINK_MSG_ID_MISSION_ITEM and msg.command == mavutil.mavlink.MAV_CMD_NAV_WAYPOINT:
@@ -171,7 +172,17 @@ while True:
                 mission_line = f"{drone_id},{lat:.7f},{lon:.7f},{alt:.1f}"
                 filename = f"mission/mission-drone-{drone_id}.pln"
 
+                # Create directory if it doesn't exist
                 os.makedirs(os.path.dirname(filename), exist_ok=True)
+                
+                # Create file if it doesn't exist
+                if not os.path.exists(filename):
+                    try:
+                        with open(filename, "w") as f:
+                            f.write("")  # Create empty file
+                        print(f"Created new mission file: {filename}")
+                    except Exception as e:
+                        print(f"Failed to create mission file for Drone {drone_id}: {e}")
 
                 try:
                     with open(filename, "a") as f:
