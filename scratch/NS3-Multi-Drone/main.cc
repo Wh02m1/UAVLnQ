@@ -34,7 +34,7 @@ Port Mapping:
 Node Relationships:
         ---------------------------------------
         |                                      |
-   +----⬇-----+       +----------+       +-----⬇----+
+   +----↓-----+       +----------+       +-----↓----+
    |  Drone0  |◀─────▶|  Drone1  |◀─────▶|  Drone2  |◀─────▶ ... ◀─────▶|  DroneN  |
    | (Leader) |       |(Follower)|       |(Follower)|                    |(Follower)|
    | (10.1.1.1|       | (10.1.1.2|       | (10.1.1.3|                    | (10.1.1.N|
@@ -71,6 +71,7 @@ Node Relationships:
 #include <iomanip>
 #include <cmath>
 #include <algorithm>
+#include <map>
 
 using namespace ns3;
 
@@ -100,8 +101,8 @@ zmq::socket_t* g_commandPublisher = nullptr;
 // Global vector for drone sockets
 std::vector<Ptr<Socket>> g_droneSockets;
 
-// MAVLink parser state
-mavlink_status_t mavlink_status;
+// MAVLink parser state - one per drone for proper parsing
+std::map<uint8_t, mavlink_status_t> mavlink_status_map;
 
 // Create MAVLink packet using official library
 std::vector<uint8_t> CreateMavlinkPacket(uint8_t target_system, uint8_t target_component,
@@ -136,196 +137,82 @@ std::vector<uint8_t> CreateMavlinkPacket(uint8_t target_system, uint8_t target_c
     return std::vector<uint8_t>(buffer, buffer + len);
 }
 
-// Send waypoint commands directly from Drone0 to other drones
-
+// Send waypoint commands directly from Drone0 to all followers
 void SendWaypointPairFromDrone0(int pairIndex) {
     Ptr<Node> drone0 = NodeList::GetNode(0);
     Ptr<Socket> socket = Socket::CreateSocket(drone0, UdpSocketFactory::GetTypeId());
     socket->Bind();
-    
-    // Define waypoints for each FOLLOWER drone (excluding Drone0 which is the leader)
-    // Array index 0 = Drone 1 (target_system = 1) -> leader drone, no waypoints needed
-    
-    // Array index 1 = Drone 2 (target_system = 2)
-    // Array index 2 = Drone 3 (target_system = 3)
-    // Array index 3 = Drone 4 (target_system = 4)
-    // and so on
-    // According to the number of drones you have in drones_config.json you should uncomment or add extra waypoints that will be sent from leader drone
-    static const std::vector<std::vector<std::tuple<float, float, float>>> all_drone_waypoints = {
-    // Drone 1 waypoints (array index 0, target_system = 1)
-    {
-        //{50, 60, 30},
-        //{10, 30, 30},
-        //{60, 10, 30}
-    },
-    // Drone 2 waypoints (array index 1, target_system = 2)
-    {
-        {50, 60, 30},
-        {20, 60, 30},
-        {20, 30, 30}
-    },
-    // Drone 3 waypoints (array index 2, target_system = 3)
-    {
-        {40, 50, 30},
-        {30, 40, 30},
-        {50, 20, 30}
-    },
-    // Drone 4 waypoints (array index 3, target_system = 4)
-    {
-        //{60, 70, 30},
-        //{40, 60, 30},
-        //{70, 30, 30}
-    },
-    // Drone 5 waypoints (array index 4, target_system = 5)
-    {
-        //{70, 80, 40},
-        //{50, 70, 40},
-        //{80, 40, 40}
-    },
-    // Drone 6 waypoints (array index 5, target_system = 6)
-    {
-        //{90, 30, 30},
-        //{40, 60, 40},
-        //{60, 80, 70}
-    },
-    // Drone 7 waypoints (array index 6, target_system = 7)
-    {
-        //{60, 70, 30},
-        //{40, 60, 30},
-        //{70, 30, 30}
-    },
-    // Drone 8 waypoints (array index 7, target_system = 8)
-    {
-        //{50, 60, 60},
-        //{70, 30, 20},
-        //{70, 90, 60}
-    },
 
-    // Drone 9 waypoints (array index 8, target_system = 9)
-    {
-        //{20, 25, 30},
-        //{30, 35, 35},
-        //{40, 25, 30}
-    },
-    // Drone 10 waypoints (array index 9, target_system = 10)
-    {
-        //{80, 20, 35},
-        //{90, 30, 35},
-        //{85, 45, 35}
-    },
-    // Drone 11 waypoints (array index 10, target_system = 11)
-    {
-        //{15, 80, 30},
-        //{25, 70, 32},
-        //{35, 75, 30}
-    },
-    // Drone 12 waypoints (array index 11, target_system = 12)
-    {
-        //{100, 60, 40},
-        //{90, 50, 40},
-        //{95, 40, 38}
-    },
-    // Drone 13 waypoints (array index 12, target_system = 13)
-    {
-        //{55, 15, 30},
-        //{65, 25, 30},
-        //{60, 35, 32}
-    },
-    // Drone 14 waypoints (array index 13, target_system = 14)
-    {
-        //{30, 90, 45},
-        //{40, 85, 45},
-        //{50, 80, 45}
-    },
-    // Drone 15 waypoints (array index 14, target_system = 15)
-    {
-        //{10, 10, 30},
-        //{20, 15, 30},
-        //{30, 12, 30}
-    },
-    // Drone 16 waypoints (array index 15, target_system = 16)
-    {
-        //{75, 75, 35},
-        //{85, 70, 35},
-        //{90, 65, 35}
-    },
-    // Drone 17 waypoints (array index 16, target_system = 17)
-    {
-        //{45, 95, 40},
-        //{55, 85, 40},
-        //{65, 90, 38}
-    },
-    // Drone 18 waypoints (array index 17, target_system = 18)
-    {
-        //{95, 15, 30},
-        //{105, 25, 30},
-        //{110, 35, 30}
-    },
-    // Drone 19 waypoints (array index 18, target_system = 19)
-    {
-        //{25, 45, 32},
-       //{35, 55, 32},
-        //{45, 50, 32}
-    },
-    // Drone 20 waypoints (array index 19, target_system = 20)
-    {
-        //{120, 60, 50},
-        //{110, 50, 50},
-        //{115, 40, 50}
-    }
+    // Waypoints for FOLLOWERS only
+    // follower_waypoints[0] -> follower with sysid 2 (ns-3 node 1)
+    // follower_waypoints[1] -> follower with sysid 3 (ns-3 node 2)
+    // follower_waypoints[2] -> follower with sysid 4 (ns-3 node 3)
+    static const std::vector<std::vector<std::tuple<float, float, float>>> follower_waypoints = {
+        // Follower 1 (sysid 2, ns-3 node 1)
+        {
+            {50, 60, 30},
+            {20, 60, 30},
+            {20, 30, 30}
+        },
+        // Follower 2 (sysid 3, ns-3 node 2)
+        {
+            {40, 50, 30},
+            {30, 40, 30},
+            {50, 20, 30}
+        },
+        // Follower 3 (sysid 4, ns-3 node 3) 
+        {
+            {60, 70, 30},
+            {40, 60, 30},
+            {70, 30, 30}
+        },
+        // Add more followers as needed...
+    };
 
-    // Add more drone waypoint sequences as needed...
-};
-
-
-    // Validate pairIndex
     if (pairIndex < 0) return;
-    
-    // Send waypoints to all follower drones (target_system starts at 1)
-   // Send waypoints to all follower drones (MAVLink target_system = 2,3,4,...)
-for (uint32_t droneIdx = 0; droneIdx < all_drone_waypoints.size(); droneIdx++) {
-    // droneIdx here is 0-based over the waypoint table
-    // so MAVLink sysid is:
-    uint8_t target_system = droneIdx + 1;  // 1,2,3,4,...
 
-    // skip leader (sysid 1)
-    if (target_system == 1)
-        continue;
+    // For each FOLLOWER ns-3 node (1..N-1)
+    for (uint32_t ns3Index = 1; ns3Index < drones.GetN(); ++ns3Index) {
+        uint32_t followerIdx = ns3Index - 1;  // map to waypoint table index
 
-    // check that this drone actually has this waypoint step
-    if (pairIndex >= all_drone_waypoints[droneIdx].size())
-        continue;
+        // No waypoint definition for this follower -> skip
+        if (followerIdx >= follower_waypoints.size())
+            break;
 
-    auto [lat, lon, alt] = all_drone_waypoints[droneIdx][pairIndex];
+        // This follower has fewer waypoints than pairIndex -> skip this round
+        if (pairIndex >= follower_waypoints[followerIdx].size())
+            continue;
 
-    // build MAVLink
-    std::vector<uint8_t> pkt = CreateMavlinkPacket(target_system, 0, lat, lon, alt);
-    Ptr<Packet> packet = Create<Packet>(pkt.data(), pkt.size());
+        auto [lat, lon, alt] = follower_waypoints[followerIdx][pairIndex];
 
-    // map MAVLink sysid → ns-3 node index
-    uint32_t ns3Index = target_system - 1;   // because node 0 == sysid 1
+        // ns-3 index i -> sysid = i + 1
+        uint8_t target_system = ns3Index + 1; // leader is 1, followers start at 2
 
-    if (ns3Index < droneIpAddresses.size()) {
-        socket->SendTo(packet, 0,
-            InetSocketAddress(droneIpAddresses[ns3Index], 20000));
+        // Build MAVLink packet
+        std::vector<uint8_t> pkt = CreateMavlinkPacket(target_system, 0, lat, lon, alt);
+        Ptr<Packet> packet = Create<Packet>(pkt.data(), pkt.size());
 
-        NS_LOG_INFO("Drone0 sent waypoint " << (pairIndex + 1)
-                    << " to Drone sysid=" << unsigned(target_system)
-                    << " (ns-3 idx=" << ns3Index << ") at "
-                    << Simulator::Now().GetSeconds() << "s");
+        if (ns3Index < droneIpAddresses.size()) {
+            socket->SendTo(packet, 0,
+                InetSocketAddress(droneIpAddresses[ns3Index], 20000));
+
+            NS_LOG_INFO("Drone0 sent waypoint " << (pairIndex + 1)
+                        << " to Drone sysid=" << unsigned(target_system)
+                        << " (ns-3 idx=" << ns3Index << ") at "
+                        << Simulator::Now().GetSeconds() << "s");
+        }
+
+        // Optional: also publish to ZMQ like before
+        if (g_commandPublisher) {
+            zmq::message_t zmqMsg(pkt.data(), pkt.size());
+            g_commandPublisher->send(zmqMsg, zmq::send_flags::none);
+        }
     }
 
-    // optional: publish to ZMQ
-    if (g_commandPublisher) {
-        zmq::message_t zmqMsg(pkt.data(), pkt.size());
-        g_commandPublisher->send(zmqMsg, zmq::send_flags::none);
-    }
+    NS_LOG_INFO("Drone0 completed sending waypoint pair "
+                << pairIndex + 1 << " at " << Simulator::Now().GetSeconds() << "s");
 }
 
-    
-    NS_LOG_INFO("Drone0 completed sending waypoint pair " << pairIndex + 1 
-                << " at " << Simulator::Now().GetSeconds() << "s");
-}
 
 // Process binary MAVLink GPS_RAW_INT, SYS_STATUS, and HEARTBEAT messages that will received from ZMQ 
 // ZMQ message format: [message_type (1 byte), drone_id (1 byte), MAVLink message bytes]
@@ -335,14 +222,22 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
     
     // First byte is message type (0 for GPS, 1 for system status, 2 for heartbeat)
     uint8_t msg_type = data[0];
-    // Second byte is drone ID (0 or 1 or 2)
+    // Second byte is drone ID (0-based: 0, 1, 2, ... n-1)
     uint8_t droneId = data[1];
+    
+    // Validate drone ID
+    if (droneId >= drones.GetN()) {
+        NS_LOG_WARN("Received message for invalid drone ID: " << static_cast<int>(droneId));
+        return;
+    }
     
     // Parse MAVLink message from the remaining bytes (starting from index 2)
     mavlink_message_t msg;
+    mavlink_status_t* status = &mavlink_status_map[droneId];
+    
     for (size_t i = 2; i < data.size(); i++) {
         // Parse each byte as part of a MAVLink message
-        if (mavlink_parse_char(MAVLINK_COMM_0, data[i], &msg, &mavlink_status)) {
+        if (mavlink_parse_char(MAVLINK_COMM_0, data[i], &msg, status)) {
             // If the message is a GPS_RAW_INT (contains GPS data)
             if (msg_type == 0 && msg.msgid == MAVLINK_MSG_ID_GPS_RAW_INT) {
                 mavlink_gps_raw_int_t gps;
@@ -354,14 +249,13 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
                 double lon = gps.lon / 1e7;      // Longitude in degrees
                 double alt = gps.alt / 1000.0;   // Altitude in meters
                 
-                // If the droneId is valid, update its position in the simulation
-                if (droneId < droneMobilityModels.size()) {
-                    // Convert GPS coordinates to local simulation XYZ coordinates
-                    double x = (lon - s_refLon) * s_metersPerDegreeLon;
-                    double y = (lat - s_refLat) * s_metersPerDegreeLat;
-                    double z = alt - s_refAlt;
-                    
-                    // Set the drone's position in the simulation
+                // Convert GPS coordinates to local simulation XYZ coordinates
+                double x = (lon - s_refLon) * s_metersPerDegreeLon;
+                double y = (lat - s_refLat) * s_metersPerDegreeLat;
+                double z = alt - s_refAlt;
+                
+                // Set the drone's position in the simulation
+                if (droneId < droneMobilityModels.size() && droneMobilityModels[droneId]) {
                     droneMobilityModels[droneId]->SetPosition(Vector(x, y, z));
                     
                     // Log the updated position 
@@ -382,7 +276,7 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
                             << " battery_remaining=" << sys_status.battery_remaining
                             << " comms_drop_rate=" << sys_status.drop_rate_comm);
             }
-            // NEW: If the message is a HEARTBEAT (contains system health data)
+            // If the message is a HEARTBEAT (contains system health data)
             else if (msg_type == 2 && msg.msgid == MAVLINK_MSG_ID_HEARTBEAT) {
                 mavlink_heartbeat_t heartbeat;
                 // Decode the HEARTBEAT message to extract system health fields
@@ -399,31 +293,33 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
             
             // Forward the MAVLink packet to all other drones (except itself) on port 20000
             // We forward only the raw MAVLink message (without message type and drone ID)
-            for (uint32_t j = 0; j < drones.GetN(); j++) {
-                if (j != droneId) {
-                    // Create a packet containing only the MAVLink message (excluding message type and drone ID)
-                    Ptr<Packet> packet = Create<Packet>(data.data() + 2, data.size() - 2);
-                    // Send the packet to the other drone's port 20000
-                    g_droneSockets[droneId]->SendTo(packet, 0, 
-                        InetSocketAddress(droneIpAddresses[j], 20000));
-                    
-                    // Log the forwarding event
-                    NS_LOG_INFO("Drone " << static_cast<int>(droneId) 
-                                << " forwarded MAVLink packet (type=" << static_cast<int>(msg_type)
-                                << ") to Drone " << j);
+            if (droneId < g_droneSockets.size() && g_droneSockets[droneId]) {
+                for (uint32_t j = 0; j < drones.GetN(); j++) {
+                    if (j != droneId && j < droneIpAddresses.size()) {
+                        // Create a packet containing only the MAVLink message (excluding message type and drone ID)
+                        Ptr<Packet> packet = Create<Packet>(data.data() + 2, data.size() - 2);
+                        // Send the packet to the other drone's port 20000
+                        g_droneSockets[droneId]->SendTo(packet, 0, 
+                            InetSocketAddress(droneIpAddresses[j], 20000));
+                        
+                        // Log the forwarding event
+                        NS_LOG_DEBUG("Drone " << static_cast<int>(droneId) 
+                                    << " forwarded MAVLink packet (type=" << static_cast<int>(msg_type)
+                                    << ") to Drone " << j);
+                    }
                 }
-               
-                /**
-                For example, if Drone 0 receives a MAVLink GPS_RAW_INT, SYS_STATUS, or HEARTBEAT message:
-                - Drone extracts the message type (0 for GPS, 1 for system status, 2 for heartbeat) and its own ID from the message.
-                - It decodes the message data (GPS coordinates, system status information, or system health).
-                    - For GPS messages, it updates its own position in the simulation using the coordinates.
-                    - For system status messages, it logs battery voltage, remaining percentage, and communication drop rate.
-                    - For heartbeat messages, it logs system type, autopilot type, and system status.
-                - It sends the MAVLink packet (without the message type and drone ID prefix) to the other drone's IP address on port 20000.
-                This ensures that every drone knows the position, system status, and health of every other drone
-                */
             }
+            
+            /**
+            For example, if Drone 0 receives a MAVLink GPS_RAW_INT, SYS_STATUS, or HEARTBEAT message:
+            - Drone extracts the message type (0 for GPS, 1 for system status, 2 for heartbeat) and its own ID from the message.
+            - It decodes the message data (GPS coordinates, system status information, or system health).
+                - For GPS messages, it updates its own position in the simulation using the coordinates.
+                - For system status messages, it logs battery voltage, remaining percentage, and communication drop rate.
+                - For heartbeat messages, it logs system type, autopilot type, and system status.
+            - It sends the MAVLink packet (without the message type and drone ID prefix) to the other drone's IP address on port 20000.
+            This ensures that every drone knows the position, system status, and health of every other drone
+            */
         }
     }
 }
@@ -446,7 +342,7 @@ void ZmqPositionReceiverThread() {
                 std::lock_guard<std::mutex> lock(positionMutex);
                 positionQueue.push(msg_vec);
             }
-            NS_LOG_INFO("ZMQ Position update received (" << length << " bytes)");
+            NS_LOG_DEBUG("ZMQ Position update received (" << length << " bytes)");
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
@@ -474,9 +370,11 @@ void PrintDronePositions(NodeContainer nodes, double interval, double simTime) {
 
     for (uint32_t i = 0; i < nodes.GetN(); ++i) {
         Ptr<MobilityModel> mobility = nodes.Get(i)->GetObject<MobilityModel>();
-        Vector pos = mobility->GetPosition();
-        std::cout << "Time " << now.GetSeconds() << "s, Drone " << i
-                  << " Position: (" << pos.x << ", " << pos.y << ", " << pos.z << ")\n";
+        if (mobility) {
+            Vector pos = mobility->GetPosition();
+            std::cout << "Time " << now.GetSeconds() << "s, Drone " << i
+                      << " Position: (" << pos.x << ", " << pos.y << ", " << pos.z << ")\n";
+        }
     }
 
     Simulator::Schedule(Seconds(interval), &PrintDronePositions, nodes, interval, simTime);
@@ -496,10 +394,15 @@ void PacketReceived(Ptr<const Packet> p, const Address& addr, uint32_t droneId) 
     mavlink_status_t status;
     for (uint32_t i = 0; i < bytesToCopy; i++) {
         if (mavlink_parse_char(MAVLINK_COMM_0, buffer[i], &msg, &status)) {
-            if (msg.msgid == MAVLINK_MSG_ID_GPS_RAW_INT) {
+            if (msg.msgid == MAVLINK_MSG_ID_MISSION_ITEM) {
+                mavlink_mission_item_t mission_item;
+                mavlink_msg_mission_item_decode(&msg, &mission_item);
+                NS_LOG_INFO("Drone " << droneId << " received MISSION_ITEM: lat=" << mission_item.x 
+                            << " lon=" << mission_item.y << " alt=" << mission_item.z);
+            } else if (msg.msgid == MAVLINK_MSG_ID_GPS_RAW_INT) {
                 mavlink_gps_raw_int_t gps;
                 mavlink_msg_gps_raw_int_decode(&msg, &gps);
-                NS_LOG_INFO("MAVLink GPS_RAW_INT: lat=" << gps.lat/1e7 
+                NS_LOG_DEBUG("MAVLink GPS_RAW_INT: lat=" << gps.lat/1e7 
                             << " lon=" << gps.lon/1e7 << " alt=" << gps.alt/1000.0);
             }
         }
@@ -540,6 +443,12 @@ int main(int argc, char *argv[]) {
     cmd.AddValue("refAlt", "Reference altitude", refAlt);
     cmd.Parse(argc, argv);
 
+    // Validate number of drones
+    if (numDrones < 2) {
+        std::cerr << "Number of drones must be at least 2 (1 leader + 1 follower)" << std::endl;
+        return 1;
+    }
+
     s_refLat = refLat;
     s_refLon = refLon;
     s_refAlt = refAlt;
@@ -554,6 +463,7 @@ int main(int argc, char *argv[]) {
 
     // Create only drone nodes
     drones.Create(numDrones);
+    NS_LOG_INFO("Created " << numDrones << " drone nodes");
 
     // Drones start at (0,0,0)
     MobilityHelper mobilityDrones;
@@ -568,7 +478,9 @@ int main(int argc, char *argv[]) {
     // Cache MobilityModel pointers
     droneMobilityModels.clear();
     for (uint32_t i = 0; i < drones.GetN(); ++i) {
-        droneMobilityModels.push_back(drones.Get(i)->GetObject<MobilityModel>());
+        Ptr<MobilityModel> mobility = drones.Get(i)->GetObject<MobilityModel>();
+        droneMobilityModels.push_back(mobility);
+        NS_LOG_INFO("Initialized mobility model for Drone " << i);
     }
 
     // Setup WiFi ad-hoc network
@@ -598,12 +510,14 @@ int main(int argc, char *argv[]) {
     Ipv4InterfaceContainer droneInterfaces = ipv4.Assign(droneDevices);
 
     // Store drone IP addresses
+    droneIpAddresses.clear();
     for (uint32_t i = 0; i < droneInterfaces.GetN(); ++i) {
         droneIpAddresses.push_back(droneInterfaces.GetAddress(i));
         NS_LOG_INFO("Drone " << i << " IP: " << droneInterfaces.GetAddress(i));
     }
 
     // Create UDP sockets for drone-to-drone communication
+    g_droneSockets.clear();
     for (uint32_t i = 0; i < drones.GetN(); i++) {
         Ptr<Socket> socket = Socket::CreateSocket(drones.Get(i), UdpSocketFactory::GetTypeId());
         socket->Bind();
@@ -615,11 +529,10 @@ int main(int argc, char *argv[]) {
     std::vector<uint16_t> ports = {20000};
     InstallPacketSinks(drones, ports, simTime);
 
-    // Schedule waypoint commands
-    Simulator::Schedule(Seconds(20.0), &SendWaypointPairFromDrone0, 0);
-    Simulator::Schedule(Seconds(30.0), &SendWaypointPairFromDrone0, 1);
-    Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);
-
+    // Schedule waypoint commands from Drone0 to other drones
+        Simulator::Schedule(Seconds(20.0), &SendWaypointPairFromDrone0, 0);
+        Simulator::Schedule(Seconds(30.0), &SendWaypointPairFromDrone0, 1);
+        Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);
 
     // Setup output files
     auto t = std::time(nullptr);
@@ -644,11 +557,18 @@ int main(int argc, char *argv[]) {
     for (uint32_t i = 0; i < drones.GetN(); ++i) {
         anim.UpdateNodeSize(drones.Get(i)->GetId(), 5, 5);
         anim.UpdateNodeDescription(drones.Get(i), "Drone " + std::to_string(i));
-        anim.UpdateNodeColor(drones.Get(i), 100, 0, 0);  // Red for all drones
+        if (i == 0) {
+            anim.UpdateNodeColor(drones.Get(i), 0, 100, 0);  // Green for leader
+        } else {
+            anim.UpdateNodeColor(drones.Get(i), 100, 0, 0);  // Red for followers
+        }
     }
 
-    // Initialize MAVLink parser
-    memset(&mavlink_status, 0, sizeof(mavlink_status));
+    // Initialize MAVLink parser states for all drones
+    for (uint32_t i = 0; i < numDrones; ++i) {
+        mavlink_status_map[i] = mavlink_status_t();
+        memset(&mavlink_status_map[i], 0, sizeof(mavlink_status_t));
+    }
 
     // Start ZMQ position receiver thread
     std::thread zmqPositionThread(ZmqPositionReceiverThread);
@@ -659,6 +579,8 @@ int main(int argc, char *argv[]) {
     // Schedule position logging
     Simulator::Schedule(Seconds(1.0), &PrintDronePositions, drones, 1.0, simTime);
 
+    NS_LOG_INFO("Starting simulation with " << numDrones << " drones for " << simTime << " seconds");
+
     // Run simulation
     Simulator::Stop(Seconds(simTime));
     Simulator::Run();
@@ -668,6 +590,8 @@ int main(int argc, char *argv[]) {
     zmqPositionThread.join();
     delete g_commandPublisher;
     Simulator::Destroy();
+
+    NS_LOG_INFO("Simulation completed successfully");
 
     return 0;
 }
