@@ -34,7 +34,7 @@ if(NOT ZMQ_LIB)
 endif()
 
 build_exec(
-  EXECNAME drone_mesh
+  EXECNAME three_drone_mesh_normal_with_attacker
   EXECNAME_PREFIX scratch_
   SOURCE_FILES "${SRC}"
   LIBRARIES_TO_LINK "${ns3-libs}" "${ns3-contrib-libs}" ${ZMQ_LIB}
