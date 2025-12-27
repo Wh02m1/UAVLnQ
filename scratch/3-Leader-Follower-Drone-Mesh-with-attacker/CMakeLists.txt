@@ -1,4 +1,17 @@
-# scratch/drone-mesh-with-attacker/CMakeLists.txt
+# scratch/3-Leader-Follower-Drone-Mesh-with-attacker/CMakeLists.txt
+
+# Include directories first (before build_exec)
+include_directories(
+  ${CMAKE_CURRENT_SOURCE_DIR}
+  ${PROJECT_SOURCE_DIR}/c_library_v2
+)
+
+# Set compile options globally for this directory
+add_compile_options(
+  -Wno-pedantic
+  -Wno-address-of-packed-member
+  -Wno-sign-compare
+)
 
 # Collect all sources from Attacks/
 file(GLOB ATTACKS_SRC CONFIGURE_DEPENDS
@@ -10,7 +23,7 @@ set(SRC
   ${ATTACKS_SRC}
 )
 
-# Mirror ns-3's output dir convention like the parent does
+# Mirror ns-3's output dir convention
 get_filename_component(absdir ${CMAKE_CURRENT_SOURCE_DIR} ABSOLUTE)
 string(REPLACE "${PROJECT_SOURCE_DIR}" "${CMAKE_OUTPUT_DIRECTORY}" scratch_directory ${absdir})
 
@@ -22,20 +35,8 @@ endif()
 
 build_exec(
   EXECNAME drone_mesh
-  EXECNAME_PREFIX scratch_three-drone-mesh-with-attacker
+  EXECNAME_PREFIX scratch_
   SOURCE_FILES "${SRC}"
   LIBRARIES_TO_LINK "${ns3-libs}" "${ns3-contrib-libs}" ${ZMQ_LIB}
   EXECUTABLE_DIRECTORY_PATH ${scratch_directory}/
-)
-
-# If Attacks code includes headers here:
-include_directories(
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  ${PROJECT_SOURCE_DIR}/c_library_v2
-)
-
-target_compile_options(scratch_three-drone-mesh_drone_mesh PRIVATE
-  -Wno-pedantic
-  -Wno-address-of-packed-member
-  -Wno-sign-compare
 )
