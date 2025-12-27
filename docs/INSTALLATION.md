@@ -1,348 +1,362 @@
-# UAVLnQ Installation Guide
-Simulation Environment:
+# UAVLnQ - Setup Guide
 
-**ArduPilot**: 4.6.0<br/>
-**Gazebo**: Harmonic<br/>
-**QGroundControl**: 5.0.6 (64-bit)<br/>
-**NS-3**: 3.45<br/>
-**OS**: Ubuntu 24.04.2 LTS<br/>
+An open-source co-simulation framework integrating ArduPilot SITL with ns-3 for UAV swarm security research.
 
-This guide provides a step-by-step walkthrough for setting up the UAV simulation environment used in this repository.
-
-Tested on:  
-- **Ubuntu 24.04.2 LTS**  
-- Works on **native laptop installation**  
 ---
-
 ## Table of Contents
-1. [Prerequisites](#prerequisites)  
-2. [Install ArduPilot (SITL)](#1-install-ardupilot-sitl)  
-3. [Install Gazebo (Harmonic)](#2-install-gazebo)  
-4. [Install ArduPilot Gazebo Plugin](#3-install-ardupilot-gazebo-plugin)  
-5. [Install QGroundControl](#4-install-qgroundcontrol)  
-6. [Install NS-3](#5-install-ns-3-network-simulator-3)  
-7. [Use Case Setup](#6-Use-Case-Setup)  
-8. [Troubleshooting](#troubleshooting)  
-9. [References](#references)  
+
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+  - [1. Python 3.9](#1-python-39)
+  - [2. ArduPilot SITL](#2-ardupilot-sitl)
+  - [3. ns-3 Network Simulator](#3-ns-3-network-simulator)
+  - [4. QGroundControl](#4-qgroundcontrol)
+  - [5. UAVLnQ Framework](#5-uavlnq-framework)
+- [Configuration](#configuration)
+- [Quick Start](#quick-start)
+- [Output Files](#output-files)
+- [Optional: Gazebo (3D Drone Simulator)](#optional-gazebo-3d-drone-simulator)
+- [Optional: NetAnim (NS-3 Visualizer)](#optional-netanim-ns-3-visualizer)
+- [References](#references)
+---
+
+## Prerequisites
+
+- Ubuntu 20.04/22.04 LTS
+- Python 3.9
+- Git
 
 ---
 
-## Prerequisites  
+## Installation
 
-Update system and install base tools:  
+### 1. Python 3.9
 
 ```bash
+# Update system packages
 sudo apt update && sudo apt upgrade -y
-sudo apt install -y git wget curl build-essential cmake g++ gcc     python3 python3-pip python3-dev     libxml2-dev libxslt1-dev     libprotobuf-dev protobuf-compiler     libssl-dev libffi-dev     pkg-config lsb-release
+
+# Install required dependencies
+sudo apt install -y software-properties-common
+
+# Add deadsnakes PPA
+sudo add-apt-repository ppa:deadsnakes/ppa -y
+
+# Update package list
+sudo apt update
+
+# Install Python 3.9 and venv
+sudo apt install -y python3.9 python3.9-venv python3.9-dev
+
+# Verify installation
+python3.9 --version
 ```
 
 ---
-
-## 1. Install ArduPilot (SITL)  
-
-### 1. Prerequisites
+### 2. ArduPilot SITL
 ```bash
-sudo apt install git
-```
+# Install git
+sudo apt-get install -y git gitk 
 
-### 2. Clone ArduPilot
-```bash
-git clone https://github.com/ArduPilot/ardupilot.git
+# Clone ArduPilot
+git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git
+
 cd ardupilot
-git submodule update --init --recursive
-```
 
-### 3. Install Dependencies
-```bash
+# Install prerequisites
 Tools/environment_install/install-prereqs-ubuntu.sh -y
+
+# Reload path (required once after installation)
 . ~/.profile
-```
-### 4. Build SITL (Quadcopter Example)
-```bash
+
+# Add ArduPilot to PATH permanently so you don't need to run . ~/.profile every time
+echo 'export PATH="$HOME/ardupilot/Tools/autotest:$PATH"' >> ~/.bashrc
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+
+# Apply changes to current terminal
+source ~/.bashrc
+
+# Build for SITL
 ./waf configure --board sitl
 ./waf copter
+
+# Verify installation
+which sim_vehicle.py
 ```
-### 5. Adding `sim_vehicle.py` to PATH
 
-To run `sim_vehicle.py` from anywhere, add it to your shell `PATH`.
-
-#### 1. Open your shell config
-For **bash**:
+#### Test Single Drone 
 ```bash
-nano ~/.bashrc
+sim_vehicle.py -v copter -I0 --sysid=1 --console \
+    --out=udp:127.0.0.1:14551 \
+    --out=udp:127.0.0.1:14552 \
+    --out=udp:127.0.0.1:14553
 ```
-#### 2. Add the script path
-Append this line:
+---
+
+### 3. ns-3 Network Simulator
+
+#### 3.1 Install Prerequisites
+
 ```bash
-export PATH="$HOME/ardupilot/Tools/autotest:$PATH"
+# Install G++ compiler
+sudo apt install g++ -y
+
+# Install CMake
+sudo apt install cmake -y
+
+# Install Clang
+sudo apt install clang -y
+
+# Install ZeroMQ libraries
+sudo apt install libzmq3-dev -y
+sudo apt install libzmq5 -y
+sudo apt install cppzmq-dev -y
 ```
-#### 3. Reload your shell
+
+#### 3.2 Clone and Build ns-3
+
 ```bash
-source ~/.bashrc  
+# Clone ns-3
+git clone https://gitlab.com/nsnam/ns-3-dev.git
+cd ns-3-dev
+
+# Clone MAVLink C library (required for MAVLink packet handling)
+git clone https://github.com/mavlink/c_library_v2
+
+# Configure and build
+./ns3 configure
+./ns3 build
 ```
-
-### 5. Run SITL (Quick Test)
-```bash
-sim_vehicle.py -v ArduCopter --console --map
-```
-
-> When running SITL, you should see something like:
-
-<pre>
-'build' finished successfully (…)
-Starting ArduCopter ...
-Connect tcp:127.0.0.1:5760 source_system=255
-Detected vehicle 1:1 on link 0
-Received 1359 parameters (ftp)
-Saved 1359 parameters to mav.parm
-</pre>
-
-> MAVProxy Console
-
-The MAVProxy console will open with the prompt:
-
-<pre>
-STABILIZE>
-</pre>
-
-> Map Window
-A map window will open. It may briefly say "map not ready", but it loads once GPS data is available.
 
 ---
 
-## 2. Install Gazebo  
+### 4. QGroundControl 
 
-The Gazebo version called **Harmonic** is the only one currently compatible with the latest Ubuntu 24.04.
+QGroundControl provides visualization for UAV positions and status.
 
-Gazebo simulates the physical environment and drone dynamics, allowing testing of UAVs in realistic 3D worlds without real hardware.
+#### 4.1 Enable Serial Port Access
 
-### 1. Update System Packages
 ```bash
-sudo apt-get update
-sudo apt-get install curl lsb-release gnupg
+sudo usermod -aG dialout "$(id -un)"
 ```
 
-### 2. Install Gazebo Harmonic
-```bash
-sudo curl https://packages.osrfoundation.org/gazebo.gpg  --output /usr/share/keyrings/pkgs-osrf-archive-keyring.gpg
+> **Note:** Log out and back in for group changes to take effect.
 
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/pkgs-osrf-archive-keyring.gpg]  https://packages.osrfoundation.org/gazebo/ubuntu-stable $(lsb_release -cs) main"  | sudo tee /etc/apt/sources.list.d/gazebo-stable.list > /dev/null
+#### 4.2 Install Dependencies
 
-sudo apt-get update
-sudo apt-get install gz-harmonic
-```
-### 3. Verify Installation
 ```bash
-gz sim --version
+sudo apt install gstreamer1.0-plugins-bad gstreamer1.0-libav gstreamer1.0-gl -y
+sudo apt install libfuse2 -y
+sudo apt install libxcb-xinerama0 libxkbcommon-x11-0 libxcb-cursor-dev -y
 ```
 
-## 3. Install ArduPilot Gazebo Plugin
-
-Integrates ArduPilot with Gazebo to simulate drones and evaluate their behavior in 3D environments.
-
-### 1. Update package lists
-```bash
-sudo apt update
-```
-
-### 2. Install Gazebo simulation library and JSON parser
-```bash
-sudo apt install libgz-sim8-dev rapidjson-dev -y
-```
-### 3. Install OpenCV and GStreamer multimedia libraries for visualization and video streaming
-```bash
-sudo apt install libopencv-dev libgstreamer1.0-dev \
-    libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-bad \
-    gstreamer1.0-libav gstreamer1.0-gl -y
-```
-### 4. Clone the plugin repository
-```bash
-git clone https://github.com/ArduPilot/ardupilot_gazebo
-cd ardupilot_gazebo
-```
-### 5. Create build directory and enter it
-```bash
-mkdir build && cd build
-```
-### 6. Configure the build with CMake
-```bash
-cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo
-```
-### 7. Compile the plugin using 4 cores
-```bash
-make -j4
-make build
-```
-### 8. Install the plugin system-wide
-```bash
-sudo make install
-```
-### 9. Set Gazebo Environment Variables
-
-These variables tell Gazebo where to find your plugin and model/world files.
+#### 4.3 Download and Install QGroundControl
 
 ```bash
-export GZ_SIM_SYSTEM_PLUGIN_PATH=/enter/path/to/your/ardupilot_gazebo/build:$GZ_SIM_SYSTEM_PLUGIN_PATH
-export GZ_SIM_RESOURCE_PATH=/enter/path/to/your/ardupilot_gazebo/models:/enter/path/to/your/ardupilot_gazebo/worlds:$GZ_SIM_RESOURCE_PATH
-```
+mkdir -p ~/QGroundControl
+cd ~/QGroundControl
 
-> **Important:** Replace `/enter/path/to/your/...` with the **actual path** to your `ardupilot_gazebo` directory.
-
-### 10. Gazebo Simulation Setup and Use Cases
-A step-by-step guide for running single-UAV and multi-UAV simulations in Gazebo with ArduPilot, including setup, configuration, and testing.
-
-[Gazebo Setup Guide](INSTALLATION_GAZEBO.md)
-
----
-
-## 4. Install QGroundControl  
-
-Provides the user interface and control for drones, supporting mission planning, monitoring, and real-time operation.
-
-
-```bash
-# Download QGroundControl AppImage (64-bit x86)
 wget https://d176tv9ibo4jno.cloudfront.net/latest/QGroundControl-x86_64.AppImage
 
-# Make the AppImage executable
+# Make executable
 chmod +x QGroundControl-x86_64.AppImage
 
 # Run QGroundControl
 ./QGroundControl-x86_64.AppImage
 ```
 
----
+#### 4.4 Configure Multiple UAVs in QGC
 
-## 5. Install NS-3 (Network Simulator 3)
+To view multiple drones, add UDP ports in QGroundControl:
 
-We use **ns-3 3.45** for network simulation.  
-
-NS-3 simulates the network for the UAV project, enabling testing of communication between drones and ground stations, and analysis of speed, delays, and data loss under different network conditions without real hardware.
-
-### 1. Install Build Tools
-```bash
-sudo apt update
-sudo apt install -y cmake ninja-build build-essential
-sudo apt-get install libzmq3-dev libczmq-dev
-sudo apt install libzmq3-dev cppzmq-dev
-```
-
-### 2. Clone NS3 repository and MAVLink Library  
-```bash
-git clone https://github.com/nsnam/ns-3-dev-git
-cd ns-3-dev-git
-git clone https://github.com/mavlink/c_library_v2
-```
-
-### 3. Configure and build NS3
-```bash
-./ns3 configure
-./ns3 build
-```
->If the use case setup has not been done yet, skip to that section. Once ready, the two use cases can be run with the following commands:
-
-1. To run the main ns3 topology without the attacker 
-```bash
-./ns3 run scratch/drone-mesh/drone_mesh
-```
-2. To run the main ns3 topology with the attacker 
-```bash
-./ns3 run scratch/drone-mesh-with-attacker/drone_mesh
-```
+1. Open **Application Settings** → **Comm Links**
+2. Add new UDP connections for each drone:
+   - Drone 1: Port `14550`
+   - Drone 2: Port `14560`
+   - Drone 3: Port `14570`
+and so on depending on your number of drones simulated
 
 ---
-## 6. Use Case Setup
 
-### 1. Clone UAVLnQ repository
+### 5. UAVLnQ Framework
+
+#### 5.1 Clone Repository
+
 ```bash
-cd ../
 git clone https://github.com/Wh02m1/UAVLnQ.git
 cd UAVLnQ
 ```
-### 2. Update Output Paths in NS-3 Scripts
 
-Before running the simulations, update the paths in the following files to specify where the PCAP files should be saved:
+#### 5.2 Setup ns-3 Scripts
 
-<pre>scratch/drone-mesh/main.cc 
-scratch/drone-mesh-with-attack/main.cc</pre>
-
-Look for the paths:
-
-<pre>/path/to/change/drone-mesh-
-/path/to/change/drone-mesh-anim_</pre>
-
-and change them to the desired location for saving PCAP and anim files.
-
-### 3. Copy NS3 Network Simulation Scripts
 ```bash
-cp -r scratch/*  ../ns-3-dev-git/scratch
-```
+# Copy UAVLnQ ns-3 scripts to ns-3 scratch directory
+cp -r ns3-scripts/* ~/ns-3-dev/scratch/
 
-### 4. Build NS3 Network Simulation Scripts
-```bash
-cd ../ns-3-dev-git
-./ns3 configure
+# Rebuild ns-3
+cd ~/ns-3-dev
 ./ns3 build
 ```
 
-### 5. Create a Virtual Environment
-
-Create a virtual environment with **Python 3.9** to ensure compatibility with the `dronekit` library:
-
-#### Prerequisite: Python 3.9 Installation (Ubuntu)
-
-Before proceeding, ensure that **Python 3.9** is installed on your system.
-
-##### 1. Check if Python 3.9 is installed
-Open a terminal and run:
+#### 5.3 Create Python Virtual Environment
 
 ```bash
-python3.9 --version
-```
-You should see output similar to:
-```bash
-Python 3.9.x
-```
-If Python 3.9 is not installed, follow these steps:
-```bash
-sudo apt update
-sudo apt install software-properties-common -y
-sudo add-apt-repository ppa:deadsnakes/ppa
-sudo apt update
-sudo apt install python3.9 python3.9-venv python3.9-dev -y
-```
-Verify the installation:
-```bash
-python3.9 --version
-```
-##### 2. Create the Virtual Environment
+cd ~/UAVLnQ
 
-```bash
-cd ../UAVLnQ
-python3.9 -m venv drone_env
-source drone_env/bin/activate
-```
-### 6. Install Requirements
-```bash
-pip install --upgrade pip
-pip install dronekit pymavlink pyzmq
-```
----
-## Troubleshooting  
+# Create virtual environment with Python 3.9
+python3.9 -m venv .venv
 
-- **QGC not connecting** → run:  
-  ```bash
-  ./build/sitl/bin/arducopter --model quad --serial0=udp:127.0.0.1:14550
-  ```
-- **NS-3 build errors** → clean & rebuild:  
-  ```bash
-  ./ns3 clean && ./ns3 build
-  ```
+# Activate virtual environment
+source .venv/bin/activate
+
+# Install requirements
+pip install -r requirements.txt
+```
 
 ---
 
+## Configuration
 
-## Optional: Install NetAnim (NS-3 Visualizer)
+Edit `drones_config.json` to configure your drone setup.
+
+### Configuration File Structure
+```json
+{
+  "Drones_config": [
+    {
+      "id": 1,
+      "dronekit_connection": "udp:127.0.0.1:14551",
+      "mavlink_connection": "udp:127.0.0.1:14552",
+      "mavlink_parser_connection": "udp:127.0.0.1:14553",
+      "qgroundcontrol_port": 14550
+    },
+    {
+      "id": 2,
+      "dronekit_connection": "udp:127.0.0.1:14561",
+      "mavlink_connection": "udp:127.0.0.1:14562",
+      "mavlink_parser_connection": "udp:127.0.0.1:14563",
+      "qgroundcontrol_port": 14560
+    },
+    {
+      "id": 3,
+      "dronekit_connection": "udp:127.0.0.1:14571",
+      "mavlink_connection": "udp:127.0.0.1:14572",
+      "mavlink_parser_connection": "udp:127.0.0.1:14573",
+      "qgroundcontrol_port": 14570
+    }
+  ],
+  "NS3_config": {
+    "ns3_bin": "/Path/To/ns-3-dev/build/scratch/NS3-Multi-Drone/ns3.44-NS3-Multi-Drone-default",
+    "parameters": "--n=3"
+  }
+}
+```
+
+### Drone Configuration Fields
+
+| Field | Description |
+|-------|-------------|
+| `id` | Unique drone identifier (matches ArduPilot `--sysid` parameter) |
+| `dronekit_connection` | UDP port for DroneKit API connection (mission control) |
+| `mavlink_connection` | UDP port for MAVLink telemetry capture (sent to ns-3) |
+| `mavlink_parser_connection` | UDP port for receiving commands from ns-3 parser |
+| `qgroundcontrol_port` | UDP port for QGroundControl visualization |
+
+### NS3 Configuration Fields
+
+| Field | Description |
+|-------|-------------|
+| `ns3_bin` | Full path to the compiled ns-3 executable |
+| `parameters` | Command line arguments for ns-3 (e.g., `--n=3` for 3 drones) |
+
+### Adding More Drones
+
+To add a 4th drone, append a new entry following the port pattern (+10 for each drone):
+```json
+{
+  "id": 4,
+  "dronekit_connection": "udp:127.0.0.1:14581",
+  "mavlink_connection": "udp:127.0.0.1:14582",
+  "mavlink_parser_connection": "udp:127.0.0.1:14583",
+  "qgroundcontrol_port": 14580
+}
+```
+
+Then update `NS3_config.parameters` to `"--n=4"`.
+
+> **Important:** The ports in `drones_config.json` must match the `--out` parameters when launching ArduPilot SITL.
+
+---
+
+## Quick Start
+
+### Terminal 1: Launch Drone 1
+
+```bash
+cd ~/ardupilot
+. ~/.profile
+sim_vehicle.py -v ArduCopter -f gazebo-iris -I0 --sysid=1 --model JSON --console \
+    --out=udp:127.0.0.1:14551 \
+    --out=udp:127.0.0.1:14552 \
+    --out=udp:127.0.0.1:14553
+```
+
+### Terminal 2: Launch Drone 2
+
+```bash
+cd ~/ardupilot
+. ~/.profile
+sim_vehicle.py -v ArduCopter -f gazebo-iris -I1 --sysid=2 --model JSON --console \
+    --out=udp:127.0.0.1:14561 \
+    --out=udp:127.0.0.1:14562 \
+    --out=udp:127.0.0.1:14563
+```
+
+### Terminal 3: Launch Drone 3
+
+```bash
+cd ~/ardupilot
+. ~/.profile
+sim_vehicle.py -v ArduCopter -f gazebo-iris -I2 --sysid=3 --model JSON --console \
+    --out=udp:127.0.0.1:14571 \
+    --out=udp:127.0.0.1:14572 \
+    --out=udp:127.0.0.1:14573
+```
+
+### Terminal 4: Run UAVLnQ Connector
+
+```bash
+cd ~/UAVLnQ
+source .venv/bin/activate
+python connect.py
+```
+
+### Terminal 5: Run MAVLink Parser
+
+```bash
+cd ~/UAVLnQ
+source .venv/bin/activate
+python Mavlink-NS3-Parser.py
+```
+
+---
+
+## Output Files
+
+| File Type | Location | Description |
+|-----------|----------|-------------|
+| PCAP | `ns-3-dev/` | Network traffic capture |
+| Telemetry CSV | `UAVLnQ/logs/` | Per-drone flight data |
+| Animation XML | `ns-3-dev/` | NetAnim visualization |
+
+---
+## Optional: Gazebo (3D Drone Simulator)
+
+You can additionally simulate the drones motion in 3D using Gazebo.
+Follow the installation guide here: [Gazebo Setup Guide](INSTALLATION_GAZEBO.md)
+
+---
+## Optional: NetAnim (NS-3 Visualizer)
 
 NetAnim is a visualization tool for NS-3 that allows you to view drone mobility, connectivity, and data exchange over time using the generated `.anim` files.
 These `.anim` files are automatically created after the simulation finishes and can be opened in NetAnim to visualize the results.
@@ -374,8 +388,6 @@ After simulation, open the `.anim` file generated by NS-3:
 ```
 
 You should see nodes (representing drones) moving and exchanging data links over time.
-
-https://github.com/user-attachments/assets/26c4dbeb-9f81-4eb1-9476-23962083f38d
 
 
 ## References  
