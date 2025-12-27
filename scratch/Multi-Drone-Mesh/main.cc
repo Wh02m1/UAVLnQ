@@ -166,7 +166,20 @@ void SendWaypointPairFromDrone0(int pairIndex) {
             {40, 60, 30},
             {70, 30, 30}
         },
-        // Add more followers as needed...
+        // When run more then 3 drones, add more waypoints here for other followers
+        
+        /*
+        Follower 4 (sysid 5, ns-3 node 4) 
+        {
+            {60, 70, 30},
+            {40, 60, 30},
+            {70, 30, 30}
+        },
+        
+        and so on......................
+        */
+
+
     };
 
     if (pairIndex < 0) return;
@@ -218,8 +231,8 @@ void SendWaypointPairFromDrone0(int pairIndex) {
 // ZMQ message format: [message_type (1 byte), drone_id (1 byte), MAVLink message bytes]
 // Message types: 0 = GPS_RAW_INT, 1 = SYS_STATUS, 2 = HEARTBEAT
 //
-// ========== OPTIMIZATION: SELECTIVE FORWARDING ==========
-// CHANGED: Only forward commands from leader (Drone 0) to prevent network flooding
+// ========== OPTIMIZATION: SELECTIVE FORWARDING==========
+// Only forward commands from leader (Drone 0) to prevent network flooding
 // GPS, HEARTBEAT, and SYS_STATUS are processed locally but NOT forwarded
 // This reduces network traffic by ~90% for large swarms (10+ drones)
 // ========================================================
@@ -237,13 +250,13 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
     mavlink_message_t msg;
     mavlink_status_t* status = &mavlink_status_map[droneId];
     
-    // CHANGED: Added flag to control forwarding - only leader commands should be forwarded
+    // only leader commands should be forwarded
     bool shouldForward = false;  // Only forward leader commands
     
     for (size_t i = 2; i < data.size(); i++) {
         if (mavlink_parse_char(MAVLINK_COMM_0, data[i], &msg, status)) {
             // GPS_RAW_INT - update position locally, don't forward
-            // CHANGED: Removed forwarding logic - GPS is now LOCAL ONLY
+            // GPS is LOCAL ONLY
             if (msg_type == 0 && msg.msgid == MAVLINK_MSG_ID_GPS_RAW_INT) {
                 mavlink_gps_raw_int_t gps;
                 mavlink_msg_gps_raw_int_decode(&msg, &gps);
@@ -263,10 +276,9 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
                                 << " GPS: lat=" << lat << " lon=" << lon << " alt=" << alt
                                 << " → x=" << x << " y=" << y << " z=" << z);
                 }
-                // CHANGED: Don't forward GPS (was forwarding to all drones before)
             }
             // SYS_STATUS - just log, don't forward
-            // CHANGED: Removed forwarding logic - SYS_STATUS is now LOCAL ONLY
+            // Removed forwarding logic - SYS_STATUS is LOCAL ONLY
             else if (msg_type == 1 && msg.msgid == MAVLINK_MSG_ID_SYS_STATUS) {
                 mavlink_sys_status_t sys_status;
                 mavlink_msg_sys_status_decode(&msg, &sys_status);
@@ -274,10 +286,9 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
                 NS_LOG_INFO("Drone " << static_cast<int>(droneId) 
                             << " SYS_STATUS: battery=" << sys_status.voltage_battery
                             << " remaining=" << sys_status.battery_remaining);
-                // CHANGED: Don't forward system status (was forwarding before)
             }
             // HEARTBEAT - just log, don't forward
-            // CHANGED: Removed forwarding logic - HEARTBEAT is now LOCAL ONLY
+            // Removed forwarding logic - HEARTBEAT is  LOCAL ONLY
             else if (msg_type == 2 && msg.msgid == MAVLINK_MSG_ID_HEARTBEAT) {
                 mavlink_heartbeat_t heartbeat;
                 mavlink_msg_heartbeat_decode(&msg, &heartbeat);
@@ -285,10 +296,9 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
                 NS_LOG_INFO("Drone " << static_cast<int>(droneId) 
                             << " HEARTBEAT: type=" << static_cast<int>(heartbeat.type)
                             << " status=" << static_cast<int>(heartbeat.system_status));
-                // CHANGED: Don't forward heartbeat (was forwarding before)
+                //  Don't forward heartbeat
             }
             // MISSION_ITEM from leader (drone 0) - forward to all
-            // KEPT: Commands from leader are still forwarded (critical for swarm control)
             else if (msg.msgid == MAVLINK_MSG_ID_MISSION_ITEM) {
                 if (droneId == 0) {  // Only if from leader
                     shouldForward = true;
@@ -296,7 +306,6 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
                 }
             }
             // COMMAND_LONG from leader - forward to all
-            // KEPT: Commands from leader are still forwarded (critical for swarm control)
             else if (msg.msgid == MAVLINK_MSG_ID_COMMAND_LONG) {
                 if (droneId == 0) {  // Only if from leader
                     shouldForward = true;
@@ -304,7 +313,6 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
                 }
             }
             // SET_MODE from leader - forward to all
-            // KEPT: Commands from leader are still forwarded (critical for swarm control)
             else if (msg.msgid == MAVLINK_MSG_ID_SET_MODE) {
                 if (droneId == 0) {  // Only if from leader
                     shouldForward = true;
@@ -314,7 +322,7 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
         }
     }
     
-    // CHANGED: Only forward commands from the leader (Drone 0)
+    // only forward commands from the leader (Drone 0)
     // Old behavior: forwarded ALL messages from ALL drones → caused MAC queue overflow
     // New behavior: forward ONLY leader commands → prevents network flooding
     if (shouldForward && droneId < g_droneSockets.size() && g_droneSockets[droneId]) {
@@ -440,6 +448,7 @@ int main(int argc, char *argv[]) {
     double refLat = -35.3633;
     double refLon = 149.165;
     double refAlt = 0.0;
+    std::string outputDir = "ns3-output"; 
 
     CommandLine cmd;
     cmd.AddValue("n", "Number of drones", numDrones);
@@ -447,6 +456,8 @@ int main(int argc, char *argv[]) {
     cmd.AddValue("refLat", "Reference latitude", refLat);
     cmd.AddValue("refLon", "Reference longitude", refLon);
     cmd.AddValue("refAlt", "Reference altitude", refAlt);
+    cmd.AddValue("o", "Output directory for PCAP and animation files", outputDir);  // a parameter for output directory of PCAP and animation files
+
     cmd.Parse(argc, argv);
 
     // Validate number of drones
@@ -544,12 +555,12 @@ int main(int argc, char *argv[]) {
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);
     std::ostringstream oss;
-    oss << "ns3-output/multi-drone-mesh-" // Change this to where you want to save the PCAP files
+    oss << outputDir << "/multi-drone-mesh-"
         << std::put_time(&tm, "%Y%m%d_%H%M%S");
     std::string outputPrefix = oss.str();
 
     std::ostringstream animOss;
-    animOss << "ns3-output/multi-drone-mesh-anim_"  // Change this to where you want to save the anim output 
+    animOss << outputDir << "/multi-drone-mesh-anim_"
             << std::put_time(&tm, "%Y%m%d_%H%M%S") << ".xml";
     std::string animFile = animOss.str();
 

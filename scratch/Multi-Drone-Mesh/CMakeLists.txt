@@ -23,7 +23,7 @@ endif()
 
 # Build executable
 build_exec(
-  EXECNAME NS3-Multi-Drone
+  EXECNAME Multi-Drone-Mesh
   EXECNAME_PREFIX scratch_
   SOURCE_FILES "${SRC}"
   LIBRARIES_TO_LINK "${ns3-libs}" "${ns3-contrib-libs}" ${ZMQ_LIB}
@@ -38,7 +38,7 @@ include_directories(
 )
 
 # Compile options
-target_compile_options(scratch_NS3-Multi-Drone PRIVATE
+target_compile_options(scratch_Multi-Drone-Mesh PRIVATE
   -Wno-pedantic
   -Wno-address-of-packed-member
   -Wno-sign-compare
