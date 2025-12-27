@@ -1,4 +1,4 @@
-# scratch/drone-mesh-with-attacker/CMakeLists.txt
+# Use the ZMQ vars and include dirs inherited from the parent scratch/CMakeLists
 
 # Collect all sources from Attacks/
 file(GLOB ATTACKS_SRC CONFIGURE_DEPENDS
@@ -22,19 +22,19 @@ endif()
 
 build_exec(
   EXECNAME drone_mesh
-  EXECNAME_PREFIX scratch_drone-mesh-with-attacker_
+  EXECNAME_PREFIX scratch_three_drone-mesh
   SOURCE_FILES "${SRC}"
   LIBRARIES_TO_LINK "${ns3-libs}" "${ns3-contrib-libs}" ${ZMQ_LIB}
   EXECUTABLE_DIRECTORY_PATH ${scratch_directory}/
 )
 
-# If Attacks code includes headers here:
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
+  ${ZMQ_INCLUDE_DIRS}
   ${PROJECT_SOURCE_DIR}/c_library_v2
 )
 
-target_compile_options(scratch_drone-mesh_drone_mesh PRIVATE
+target_compile_options(scratch_three_drone-mesh PRIVATE
   -Wno-pedantic
   -Wno-address-of-packed-member
   -Wno-sign-compare
