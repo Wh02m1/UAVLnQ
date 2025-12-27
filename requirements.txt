@@ -1,3 +1,4 @@
-dronekit>=2.9.2
-pymavlink>=2.4.40
-pyzmq>=25.1.0
+dronekit==2.9.2
+pymavlink==2.4.41
+pyzmq==25.1.1
+future==0.18.3
