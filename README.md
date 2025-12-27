@@ -1,192 +1,336 @@
-# UAVLnQ (UAV Network Simulator)
+# UAVLnQ - Setup Guide
 
-This repository provides a simulated environment for studying UAV (Unmanned Aerial Vehicle) network security using **ArduPilot SITL** and **ns-3**.  
-
-The setup models a set  of three drones connected in a mesh-style network, with additional communication links to **QGroundControl (QGC)**.  
-
-The simulation implements a **leader–follower topology**, where:
-
-- **Leader Drone** (commander) issues mission commands and waypoints.  
-- **Follower Drones** receive mission updates from the leader, continuously broadcast telemetry (GPS position,system status, heartbeat) through MAVLink messages, and cooperate with each other to maintain coordinated swarm operations.
-
-The environment is designed to:
-- Evaluate **normal swarm coordination** under realistic MAVLink communication flows.  
-- Test **attack scenarios** to such setup.  
-
-By combining **NS-3’s network simulation capabilities** with **ArduPilot SITL flight logic**, UAVLnQ enables both **network-level packet attakcs** and **vehicle-level attaks** for further UAV security research.
+An open-source co-simulation framework integrating ArduPilot SITL with ns-3 for UAV swarm security research.
 
 ---
 
-# System Architecture
+## Prerequisites
 
-Overall system architecture Without Attacker:
-
-![Architecture](docs/Architecture.png)
-
-Overall system architecture with Attacker Sending malformed mavlink packets:
-
-![Architecture with Attacker](docs/Architecture_with_attacker.png)
+- Ubuntu 20.04/22.04 LTS
+- Python 3.9
+- Git
 
 ---
 
-## Attack Scenarios 
+## Installation
 
-### Drone SITL Attacks
-| # | Attack Name                            | Packet Builder Function(s)            | Description |
-|---|----------------------------------------|----------------------------------------|-------------|
-| 1 | Malicious Waypoint Injection (Hijack Routes) | `CreateMavlinkMissionPacket`         | Injects fake `MISSION_ITEM` messages so followers fly to unintended waypoints or become isolated. |
-| 2 | Speed Manipulation                     | `CreateChangeSpeedPacket`              | Injects `COMMAND_LONG` with `MAV_CMD_DO_CHANGE_SPEED` to force slower/faster flight, disrupting mission timing. |
-| 3 | Forced Return-to-Launch (RTL)          | `CreateForcedReturnHomePacket`         | Sends a `SET_MODE` to force drones into RTL mode, causing premature mission abortion. |
-| 4 | Forced Disarm                          | `CreateForcedDisarmPacket`             | Sends `MAV_CMD_COMPONENT_ARM_DISARM` with the force-disarm flag; immediately disarms motors mid-flight. |
-| 5 | Flight Termination                     | `CreateFlightTerminationPacket`        | Sends `MAV_CMD_DO_FLIGHTTERMINATION` causing immediate motor cutoff. |
-| 6 | Home Position Hijack                   | `CreateSetHomePositionPacket`          | Maliciously sets home location (near attacker). On RTL, vehicles return to the attacker’s position. |
+### 1. Python 3.9
 
-### Network-Level Attacks
-| # | Attack Name                            | Packet Builder Function(s)            | Description |
-|---|----------------------------------------|----------------------------------------|-------------|
-| 7 | GPS Spoofing (Network Injection)       | `CreateFakeGpsPacket`                  | Sends fake `GPS_RAW_INT` for a legitimate  Real drones (SYSIDs 1-3); spoofs position, altitude, and velocity. |
-| 8 | Heartbeat Flood DoS                    | `CreateHeartbeatPacket`                | Floods the network with many spoofed `HEARTBEAT` frames (e.g., SYSIDs 4–20) to overload links and processing. |
-
-### QGroundControl (GCS) Attacks
-| # | Attack Name                            | Packet Builder Function(s)            | Description |
-|---|----------------------------------------|----------------------------------------|-------------|
-| 9  | Drone Location Spoofing (UI Deception) | `CreateQgcLocationSpoofPacket`        | Spoofs Real drones (SYSIDs 1-3) positions in QGC by sending fake `GLOBAL_POSITION_INT`, making them appear somewhere else. |
-| 10 | Battery Status Spoofing                | `CreateSpoofedBatteryStatusPacket`     | Spoofs `BATTERY_STATUS` (percentage/voltage). |
-| 11 | Ghost Drones (Fake Fleet Flood)        | `CreateSpoofedDroneGpsPacket`          | Generates non-existent drones (SYSIDs 4–10) so QGC shows “phantom” UAVs. |
-
-
-
-# Installation
-- [Installation Guide](docs/INSTALLATION.md)
-
-# Multi-Drone SITL + Gazebo + NS3 Setup Guide
-
-This guide explains how to set up and run **multiple ArduCopter SITL drones** with Gazebo, NS3, and QGroundControl.
-
----
-# 1. Prerequisites
-> Follow the ArduPilot and Gazebo installation guides to fulfill the prerequisites.
-
-- ArduPilot installed and `sim_vehicle.py` added to your `PATH`.
-- Gazebo installed with the custom world file (`worlds/Custom_3_uav.sdf`).
-- QGroundControl AppImage downloaded (`QGroundControl-x86_64.AppImage`).
-- Python scripts:  
-  - `connect.py`  
-  - `Mavlink-NS3-Parser.py`  
-
----
-
-# 2. Modify Source Code 
-
-> ⚠️ Before running, make sure to update the NS3 line in `connect.py` depending on your use case — either the normal case or the attacker case.
-> You need to modify both the NS-3 path and, within NS-3, update the path where you want to save the traffic `.pcap` and `.anim` files.
-
-The line to be modified:
 ```bash
-'/path/to/change/ns-3-dev/ns3','run','scratch/drone-mesh/drone_mesh'
+# Update system packages
+sudo apt update && sudo apt upgrade -y
+
+# Install required dependencies
+sudo apt install -y software-properties-common
+
+# Add deadsnakes PPA
+sudo add-apt-repository ppa:deadsnakes/ppa -y
+
+# Update package list
+sudo apt update
+
+# Install Python 3.9 and venv
+sudo apt install -y python3.9 python3.9-venv python3.9-dev
+
+# Verify installation
+python3.9 --version
 ```
 
-Normal Senario:
+---
+### 2. ArduPilot SITL
 ```bash
-'/path/to/change/ns-3-dev/ns3','run','scratch/drone-mesh/drone_mesh'
+# Install git
+sudo apt-get install -y git gitk 
+
+# Clone ArduPilot
+git clone --recurse-submodules https://github.com/ArduPilot/ardupilot.git
+
+cd ardupilot
+
+# Install prerequisites
+Tools/environment_install/install-prereqs-ubuntu.sh -y
+
+# Reload path (required once after installation)
+. ~/.profile
+
+# Add ArduPilot to PATH permanently so you don't need to run . ~/.profile every time
+echo 'export PATH="$HOME/ardupilot/Tools/autotest:$PATH"' >> ~/.bashrc
+echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+
+# Apply changes to current terminal
+source ~/.bashrc
+
+# Build for SITL
+./waf configure --board sitl
+./waf copter
+
+# Verify installation
+which sim_vehicle.py
 ```
 
-With Attacker Senario:
+#### Test Single Drone 
 ```bash
-'/path/to/change/ns-3-dev/ns3','run','scratch/drone-mesh-with-attacker/drone_mesh'
+sim_vehicle.py -v copter -I0 --sysid=1 --console \
+    --out=udp:127.0.0.1:14551 \
+    --out=udp:127.0.0.1:14552 \
+    --out=udp:127.0.0.1:14553
 ```
 ---
 
-# Enabling Attacks
+### 3. ns-3 Network Simulator
 
-All attack functions are defined but commented out by default inside:
-`scratch/drone-mesh-with-attacker/main.cc`
-
-To configure which attacks to run uncomment the desired attack and adjust the simulation time at which you want it to occur.
-
-For example, change:
+#### 3.1 Install Prerequisites
 
 ```bash
-//Simulator::Schedule(Seconds(50.0), &ExecuteForceDisarmAttack, attackerSocket);
+# Install G++ compiler
+sudo apt install g++ -y
+
+# Install CMake
+sudo apt install cmake -y
+
+# Install Clang
+sudo apt install clang -y
+
+# Install ZeroMQ libraries
+sudo apt install libzmq3-dev -y
+sudo apt install libzmq5 -y
+sudo apt install cppzmq-dev -y
 ```
 
-to:
+#### 3.2 Clone and Build ns-3
+
 ```bash
-Simulator::Schedule(Seconds(30.0), &ExecuteForceDisarmAttack, attackerSocket);
+# Clone ns-3
+git clone https://gitlab.com/nsnam/ns-3-dev.git
+cd ns-3-dev
+
+# Clone MAVLink C library (required for MAVLink packet handling)
+git clone https://github.com/mavlink/c_library_v2
+
+# Configure and build
+./ns3 configure
+./ns3 build
 ```
-This will run the Forced Disarm attack at 30 seconds of the simulaton instead of 50.
 
 ---
 
-# 3. Launch Gazebo
+### 4. QGroundControl 
 
-Run Gazebo with the custom multi-drone world:
+QGroundControl provides visualization for UAV positions and status.
+
+#### 4.1 Enable Serial Port Access
+
 ```bash
-gz sim worlds/Custom_3_uav.sdf
+sudo usermod -aG dialout "$(id -un)"
 ```
-And when the 3D simulator opens, press the ▶️ Start button
 
----
+> **Note:** Log out and back in for group changes to take effect.
 
-# 4. Launch QGroundControl
+#### 4.2 Install Dependencies
 
-Run QGroundControl in a separate terminal:
 ```bash
+sudo apt install gstreamer1.0-plugins-bad gstreamer1.0-libav gstreamer1.0-gl -y
+sudo apt install libfuse2 -y
+sudo apt install libxcb-xinerama0 libxkbcommon-x11-0 libxcb-cursor-dev -y
+```
+
+#### 4.3 Download and Install QGroundControl
+
+```bash
+mkdir -p ~/QGroundControl
+cd ~/QGroundControl
+
+wget https://d176tv9ibo4jno.cloudfront.net/latest/QGroundControl-x86_64.AppImage
+
+# Make executable
+chmod +x QGroundControl-x86_64.AppImage
+
+# Run QGroundControl
 ./QGroundControl-x86_64.AppImage
 ```
 
+#### 4.4 Configure Multiple UAVs in QGC
+
+To view multiple drones, add UDP ports in QGroundControl:
+
+1. Open **Application Settings** → **Comm Links**
+2. Add new UDP connections for each drone:
+   - Drone 1: Port `14550`
+   - Drone 2: Port `14560`
+   - Drone 3: Port `14570`
+and so on depending on your number of drones simulated
+
 ---
 
-# 5. Launch Multiple Drones
+### 5. UAVLnQ Framework
 
-Run each of the following commands inside the ArduPilot directory in separate terminals.
-<br/>⚠️Make sure to execute them only after launching Gazebo and starting the 3D simulator (▶️ Start button).
-
-### Drone 1
+#### 5.1 Clone Repository
 
 ```bash
+git clone https://github.com/Wh02m1/UAVLnQ.git
+cd UAVLnQ
+```
+
+#### 5.2 Setup ns-3 Scripts
+
+```bash
+# Copy UAVLnQ ns-3 scripts to ns-3 scratch directory
+cp -r ns3-scripts/* ~/ns-3-dev/scratch/
+
+# Rebuild ns-3
+cd ~/ns-3-dev
+./ns3 build
+```
+
+#### 5.3 Create Python Virtual Environment
+
+```bash
+cd ~/UAVLnQ
+
+# Create virtual environment with Python 3.9
+python3.9 -m venv .venv
+
+# Activate virtual environment
+source .venv/bin/activate
+
+# Install requirements
+pip install -r requirements.txt
+```
+
+---
+
+## Configuration
+
+Edit `drones_config.json` to configure your drone setup.
+
+### Configuration File Structure
+```json
+{
+  "Drones_config": [
+    {
+      "id": 1,
+      "dronekit_connection": "udp:127.0.0.1:14551",
+      "mavlink_connection": "udp:127.0.0.1:14552",
+      "mavlink_parser_connection": "udp:127.0.0.1:14553",
+      "qgroundcontrol_port": 14550
+    },
+    {
+      "id": 2,
+      "dronekit_connection": "udp:127.0.0.1:14561",
+      "mavlink_connection": "udp:127.0.0.1:14562",
+      "mavlink_parser_connection": "udp:127.0.0.1:14563",
+      "qgroundcontrol_port": 14560
+    },
+    {
+      "id": 3,
+      "dronekit_connection": "udp:127.0.0.1:14571",
+      "mavlink_connection": "udp:127.0.0.1:14572",
+      "mavlink_parser_connection": "udp:127.0.0.1:14573",
+      "qgroundcontrol_port": 14570
+    }
+  ],
+  "NS3_config": {
+    "ns3_bin": "/Path/To/ns-3-dev/build/scratch/NS3-Multi-Drone/ns3.44-NS3-Multi-Drone-default",
+    "parameters": "--n=3"
+  }
+}
+```
+
+### Drone Configuration Fields
+
+| Field | Description |
+|-------|-------------|
+| `id` | Unique drone identifier (matches ArduPilot `--sysid` parameter) |
+| `dronekit_connection` | UDP port for DroneKit API connection (mission control) |
+| `mavlink_connection` | UDP port for MAVLink telemetry capture (sent to ns-3) |
+| `mavlink_parser_connection` | UDP port for receiving commands from ns-3 parser |
+| `qgroundcontrol_port` | UDP port for QGroundControl visualization |
+
+### NS3 Configuration Fields
+
+| Field | Description |
+|-------|-------------|
+| `ns3_bin` | Full path to the compiled ns-3 executable |
+| `parameters` | Command line arguments for ns-3 (e.g., `--n=3` for 3 drones) |
+
+### Adding More Drones
+
+To add a 4th drone, append a new entry following the port pattern (+10 for each drone):
+```json
+{
+  "id": 4,
+  "dronekit_connection": "udp:127.0.0.1:14581",
+  "mavlink_connection": "udp:127.0.0.1:14582",
+  "mavlink_parser_connection": "udp:127.0.0.1:14583",
+  "qgroundcontrol_port": 14580
+}
+```
+
+Then update `NS3_config.parameters` to `"--n=4"`.
+
+> **Important:** The ports in `drones_config.json` must match the `--out` parameters when launching ArduPilot SITL.
+
+---
+
+## Quick Start
+
+### Terminal 1: Launch Drone 1
+
+```bash
+cd ~/ardupilot
+. ~/.profile
 sim_vehicle.py -v ArduCopter -f gazebo-iris -I0 --sysid=1 --model JSON --console \
---out=udp:127.0.0.1:14551 \
---out=udp:127.0.0.1:14552 \
---out=udp:127.0.0.1:14553
+    --out=udp:127.0.0.1:14551 \
+    --out=udp:127.0.0.1:14552 \
+    --out=udp:127.0.0.1:14553
 ```
-### Drone 2
+
+### Terminal 2: Launch Drone 2
+
 ```bash
+cd ~/ardupilot
+. ~/.profile
 sim_vehicle.py -v ArduCopter -f gazebo-iris -I1 --sysid=2 --model JSON --console \
---out=udp:127.0.0.1:14561 \
---out=udp:127.0.0.1:14562 \
---out=udp:127.0.0.1:14563
+    --out=udp:127.0.0.1:14561 \
+    --out=udp:127.0.0.1:14562 \
+    --out=udp:127.0.0.1:14563
 ```
 
-### Drone 3
+### Terminal 3: Launch Drone 3
+
 ```bash
+cd ~/ardupilot
+. ~/.profile
 sim_vehicle.py -v ArduCopter -f gazebo-iris -I2 --sysid=3 --model JSON --console \
---out=udp:127.0.0.1:14571 \
---out=udp:127.0.0.1:14572 \
---out=udp:127.0.0.1:14573
+    --out=udp:127.0.0.1:14571 \
+    --out=udp:127.0.0.1:14572 \
+    --out=udp:127.0.0.1:14573
 ```
 
----
-
-Finally, open two new terminals inside this project directory. In each terminal, activate your Python 3.9 virtual environment (recommended):
+### Terminal 4: Run UAVLnQ Connector
 
 ```bash
-source drone_env/bin/activate
-```
-
-In first terminal, run the connector:
-```bash
+cd ~/UAVLnQ
+source .venv/bin/activate
 python connect.py
 ```
 
-In secound terminal, run the NS3 parser:
+### Terminal 5: Run MAVLink Parser
+
 ```bash
+cd ~/UAVLnQ
+source .venv/bin/activate
 python Mavlink-NS3-Parser.py
 ```
-<img width="1668" height="943" alt="image" src="https://github.com/user-attachments/assets/793066ca-c297-45a3-a243-5f63f132888f" />
 
+---
 
+## Output Files
 
+| File Type | Location | Description |
+|-----------|----------|-------------|
+| PCAP | `ns-3-dev/` | Network traffic capture |
+| Telemetry CSV | `UAVLnQ/logs/` | Per-drone flight data |
+| Animation XML | `ns-3-dev/` | NetAnim visualization |
 
-
-
+---
