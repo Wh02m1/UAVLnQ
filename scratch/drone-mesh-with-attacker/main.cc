@@ -351,12 +351,23 @@ int main(int argc, char *argv[]) {
     double refLat = -35.3633;
     double refLon = 149.165;
     double refAlt = 0.0;
+    std::string outputDir = "ns3-output";  
+    std::string attackType = "none";      // Default Attack type selection (none) 
+    double attackTime = 50.0;             // Attack timing (seconds)
+
 
     CommandLine cmd;
     cmd.AddValue("simTime", "Simulation time in seconds", simTime);
     cmd.AddValue("refLat", "Reference latitude", refLat);
     cmd.AddValue("refLon", "Reference longitude", refLon);
     cmd.AddValue("refAlt", "Reference altitude", refAlt);
+
+    cmd.AddValue("attack", "Attack type: none|ForceDisarm|FlightTermination|ForceRTL|SpeedManipulation|HomePositionHijack|GPSSpoofing|HeartbeatFlood|BatterySpoofing|GhostDroneFlood|QGCLocationSpoofing|MissionInjection", attackType);
+    cmd.AddValue("attackTime", "Attack start time in seconds", attackTime);
+
+    cmd.AddValue("o", "Output directory for PCAP and animation files", outputDir); 
+
+
     cmd.Parse(argc, argv);
 
     s_refLat = refLat;
@@ -463,8 +474,87 @@ int main(int argc, char *argv[]) {
       Simulator::Schedule(Seconds(30.0), &SendWaypointPairFromDrone0, 1);
       Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);
 
-//------------------------------------------Attacks Schedule ----------------------------------------------------------------------
 
+//------------------------------------------Attack Scheduling (Parameter-Based)----------------------------------------------
+
+    // Schedule attack based on --attack parameter
+    
+    // ForceDisarm: Sends MAV_CMD_COMPONENT_ARM_DISARM with force-disarm magic number -> 21196
+    // to immediately shut down drone motors mid-flight, causing the drone to fall
+    if (attackType == "ForceDisarm") {
+        NS_LOG_INFO("Scheduling Force Disarm attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteForceDisarmAttack, attackerSocket);
+    } 
+    // FlightTermination: Sends MAV_CMD_DO_FLIGHTTERMINATION command to abort flight
+    // and shut down all motors immediately, resulting in total loss of the vehicle
+    else if (attackType == "FlightTermination") {
+        NS_LOG_INFO("Scheduling Flight Termination attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteFlightTerminationAttack, attackerSocket);
+    } 
+    // ForceRTL: Sends SET_MODE command to switch drone to RTL (Return-to-Launch) mode,
+    // forcing the drone to abandon its current mission and return home
+    else if (attackType == "ForceRTL") {
+        NS_LOG_INFO("Scheduling Force RTL attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteForceRTLAttack, attackerSocket);
+    } 
+    // SpeedManipulation: Sends MAV_CMD_DO_CHANGE_SPEED to alter drone speed (slow down to 2 m/s),
+    // disrupting mission timing and coordination between swarm members
+    else if (attackType == "SpeedManipulation") {
+        NS_LOG_INFO("Scheduling Speed Manipulation attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteSpeedManipulationAttack, attackerSocket);
+    } 
+    // HomePositionHijack: Sends MAV_CMD_DO_SET_HOME to change the drone's home position
+    // to attacker's location, so when RTL is triggered, drone flies to attacker instead
+    else if (attackType == "HomePositionHijack") {
+        NS_LOG_INFO("Scheduling Home Position Hijack attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteSetHomeAttack, attackerSocket);
+    } 
+    // GPSSpoofing: Injects fake GPS_RAW_INT packets to corrupt drone's perception of
+    // other drones' positions, disrupting swarm coordination and situational awareness
+    else if (attackType == "GPSSpoofing") {
+        NS_LOG_INFO("Scheduling GPS Spoofing attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &Execute_GPS_RAW_INT_SpoofingAttack, attackerSocket);
+    } 
+    // HeartbeatFlood: Floods network with HEARTBEAT packets from multiple spoofed system IDs,
+    // causing DoS by overwhelming network bandwidth and processing capacity
+    else if (attackType == "HeartbeatFlood") {
+        NS_LOG_INFO("Scheduling Heartbeat Flood (DoS) attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteHeartbeatFloodAttack, attackerSocket);
+    } 
+    // BatterySpoofing: Sends fake BATTERY_STATUS packets showing critical battery level (5%),
+    // tricking QGC into displaying false low-battery warnings and potentially triggering failsafes
+    else if (attackType == "BatterySpoofing") {
+        NS_LOG_INFO("Scheduling Battery Spoofing attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteBatteryPercentageSpoofingAttack, attackerSocket);
+    } 
+    // GhostDroneFlood: Creates fake drones (sysid 4-10) by sending HEARTBEAT, SYS_STATUS,
+    // GPS_RAW_INT, and GLOBAL_POSITION_INT packets, flooding QGC with phantom UAVs
+    else if (attackType == "GhostDroneFlood") {
+        NS_LOG_INFO("Scheduling Ghost Drone Flood attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteSpoofedDroneFloodAttack, attackerSocket);
+    } 
+    // QGCLocationSpoofing: Sends spoofed GLOBAL_POSITION_INT packets to make QGC display
+    // incorrect drone positions on the map (e.g., showing drones in Barcelona instead of actual location)
+    else if (attackType == "QGCLocationSpoofing") {
+        NS_LOG_INFO("Scheduling QGC Location Spoofing attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteSpoofDroneGPSAttack, attackerSocket);
+    } 
+    // MissionInjection: Injects malicious MISSION_ITEM waypoints that appear to come from
+    // the leader drone, hijacking follower drones' navigation to attacker-chosen coordinates
+    else if (attackType == "MissionInjection") {
+        NS_LOG_INFO("Scheduling Mission Injection attack at " << attackTime << "s");
+        for (int i = 0; i < 7; i++) {
+            Simulator::Schedule(Seconds(attackTime + i), &SendWaypointPairFromAttacker, i);
+        }
+    } 
+    else if (attackType != "none") {
+        NS_LOG_WARN("Unknown attack type: " << attackType << ". No attack scheduled.");
+    } 
+    else {
+        NS_LOG_INFO("No attack scheduled (--attack=none)");
+    }
+
+//------------------------------------------Attacks Schedule (Static)----------------------------------------------------------------------
 
 //------------------------------------------Drone SITL Attacks-----------------------------------------------------------------------
 
@@ -517,12 +607,12 @@ int main(int argc, char *argv[]) {
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);
     std::ostringstream oss;
-    oss << "ns3-output/multi-drone-mesh-" // Change this to where you want to save the PCAP files
+    oss << outputDir << "/multi-drone-mesh-with-Attacker_"
         << std::put_time(&tm, "%Y%m%d_%H%M%S");
     std::string outputPrefix = oss.str();
 
     std::ostringstream animOss;
-    animOss << "ns3-output/multi-drone-mesh-anim_"  // Change this to where you want to save the anim output 
+    animOss << outputDir << "/multi-drone-mesh-with-Attacker-anim_"
             << std::put_time(&tm, "%Y%m%d_%H%M%S") << ".xml";
     std::string animFile = animOss.str();
 
