@@ -1,0 +1,3 @@
+dronekit>=2.9.2
+pymavlink>=2.4.40
+pyzmq>=25.1.0
