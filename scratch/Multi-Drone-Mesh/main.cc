@@ -143,10 +143,12 @@ void SendWaypointPairFromDrone0(int pairIndex) {
     Ptr<Socket> socket = Socket::CreateSocket(drone0, UdpSocketFactory::GetTypeId());
     socket->Bind();
 
-    // Waypoints for FOLLOWERS only
-    // follower_waypoints[0] -> follower with sysid 2 (ns-3 node 1)
-    // follower_waypoints[1] -> follower with sysid 3 (ns-3 node 2)
-    // follower_waypoints[2] -> follower with sysid 4 (ns-3 node 3)
+    // Waypoints format: {x, y, altitude} in meters (local coordinates)
+    // Each follower has an array of waypoints sent at different times:
+    //   - waypoints[0] sent at t=20s (pairIndex 0)
+    //   - waypoints[1] sent at t=30s (pairIndex 1)
+    //   - waypoints[2] sent at t=40s (pairIndex 2)
+    // So each follower has a 3 waypoint mission send to him at different times (Can be extended and changed)
     static const std::vector<std::vector<std::tuple<float, float, float>>> follower_waypoints = {
         // Follower 1 (sysid 2, ns-3 node 1)
         {
@@ -546,11 +548,21 @@ int main(int argc, char *argv[]) {
     std::vector<uint16_t> ports = {20000};
     InstallPacketSinks(drones, ports, simTime);
 
-    // Schedule waypoint commands from Drone0 to other drones
-        Simulator::Schedule(Seconds(20.0), &SendWaypointPairFromDrone0, 0);
-        Simulator::Schedule(Seconds(30.0), &SendWaypointPairFromDrone0, 1);
-        Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);
+    // Schedule waypoint commands from Drone0 (Leader) to all followers
+    // The number (0, 1, 2...) is the waypoint index from follower_waypoints array:
+    //   0 = send waypoints[0] to all followers (first waypoint)
+    //   1 = send waypoints[1] to all followers (second waypoint)
+    //   2 = send waypoints[2] to all followers (third waypoint)
+    // Seconds() is the time to send that waypoint pair in ns3 simulation time
+    
+    Simulator::Schedule(Seconds(20.0), &SendWaypointPairFromDrone0, 0);  // 1st waypoint
+    Simulator::Schedule(Seconds(30.0), &SendWaypointPairFromDrone0, 1);  // 2nd waypoint
+    Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);  // 3rd waypoint
 
+    // To add more:
+    //   1. Simulator::Schedule(Seconds(50.0), &SendWaypointPairFromDrone0, 3);  // 4th waypoint
+    //   2. Add 4th waypoint coordinates in follower_waypoints array
+        
     // Setup output files
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);
