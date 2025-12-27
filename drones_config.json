@@ -22,7 +22,7 @@
         }
     ],
     "NS3_config": {
-        "ns3_bin": "/Path/To/ns-3-dev/build/scratch/NS3-Multi-Drone/ns3.44-NS3-Multi-Drone-default",
-        "parameters": "--n=3  --o=/Path/To/Save/ns3-output  --simTime=200"
+        "ns3_bin": "/Path/To/ns-3-dev/build/scratch/3-Leader-Follower-Drone-Mesh-with-attacker/ns3.44-drone_mesh-default",
+        "parameters": "--o=/Path/To/UAVLnQ/ns3-output --simTime=200 --attack=FlightTermination --attackTime=50"
     }
 }
