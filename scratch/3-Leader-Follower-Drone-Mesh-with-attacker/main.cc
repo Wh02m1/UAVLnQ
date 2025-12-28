@@ -6,37 +6,46 @@ Drone Mesh Network Simulation with MAVLink/ZMQ Integration - ns-3
 ARCHITECTURE:
 ------------
 Network Topology:
-   - 3 Drones in WiFi ad-hoc mesh (802.11a)
+   - 3 Drones + 1 Attacker in WiFi ad-hoc mesh (802.11a)
    - IP Range: 10.1.1.0/24
      * Drone0: 10.1.1.1
      * Drone1: 10.1.1.2
      * Drone2: 10.1.1.3
+     * Attacker: 10.1.1.4
 
 Communication Protocols:
-   - MAVLink over UDP for drone commands and status
+   - MAVLink over UDP for drone commands
    - ZMQ for external communication
    - WiFi ad-hoc (802.11a) for physical layer
 
-Port Mapping:
-   ┌─────────────┬─────────────┬──────────────────────────────┐
-   │   Node      │   Port      │          Purpose             │
-   ├─────────────┼─────────────┼──────────────────────────────┤
-   │ All Drones  │ 20000/UDP   │ MAVLink command reception,   │
-   │             │             │ GPS position sharing,        │
-   │             │             │ system status, heartbeat     │
-   ├─────────────┼─────────────┼──────────────────────────────┤
-   │ External    │ 5555/TCP    │ ZMQ command publishing       │
-   │ External    │ 5556/TCP    │ ZMQ position updates         │
-   └─────────────┴─────────────┴──────────────────────────────┘
+Port Mapping
+┌─────────────┬───────────┬──────────────────────────────────────────────────────────────┐
+│ Node        │ Port      │ Purpose                                                      │
+├─────────────┼───────────┼──────────────────────────────────────────────────────────────┤
+│ All Drones  │ 20000/UDP │ MAVLink command reception (COMMAND_LONG, MISSION_ITEM);      │
+│             │           │ broadcast/forward of GPS_RAW_INT, SYS_STATUS, HEARTBEAT      │
+│             │           │ (send & receive on 20000/UDP)                                │
+├─────────────┼───────────┼──────────────────────────────────────────────────────────────┤
+│ Attacker    │  5550/UDP │ Send malicious MAVLink packets to drones                     │
+├─────────────┼───────────┼──────────────────────────────────────────────────────────────┤
+│ External    │  5555/TCP │ ZMQ command publishing                                       │
+│ (Host/App)  │  5556/TCP │ ZMQ position updates                                         │
+└─────────────┴───────────┴──────────────────────────────────────────────────────────────┘
+
+
 
 Node Relationships:
-        ---------------------------------------
-        |                                      |
-   +----⬇-----+       +----------+       +-----⬇----+
+   +----------+       +----------+       +----------+
    |  Drone0  |◀─────▶|  Drone1  |◀─────▶|  Drone2  |
    | (10.1.1.1|       | (10.1.1.2|       | (10.1.1.3|
-   +----------+       +----------+       +----------+
-                                   
+   +----------+       +----▲-----+       +----▲-----+
+                           │                  │
+                           └------------------┘                  
+                                     │                           
+                               +-----▼-------+            
+                               |   Attacker  |             
+                               |  (10.1.1.4) |            
+                               +-------------+             
 
 
 - Mission Control: Drone0 sends MAVLink commands to other drones via port 20000
@@ -69,23 +78,27 @@ Node Relationships:
 #include <cmath>
 #include <algorithm>
 
+#include "Attacks/attacks.h"
+
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("DroneZmqMeshNetwork");
 
 static std::atomic<bool> keepRunning(true);
 std::mutex positionMutex;
-std::queue<std::vector<uint8_t>> positionQueue;  // Changed to binary queue
+std::queue<std::vector<uint8_t>> positionQueue; 
 
 NodeContainer drones;
 std::vector<Ptr<MobilityModel>> droneMobilityModels;
 
-// Global GPS reference point
-static double s_refLat = -35.3633;
-static double s_refLon = 149.165;
-static double s_refAlt = 0.0;
-static double s_metersPerDegreeLat = 111320.0;
-static double s_metersPerDegreeLon = s_metersPerDegreeLat * std::cos(s_refLat * M_PI / 180.0);
+NodeContainer Attacker; 
+
+// Global GPS reference point (made non-static so attacks.cc can link via extern)
+double s_refLat = -35.3633;
+double s_refLon = 149.165;
+double s_refAlt = 0.0;
+double s_metersPerDegreeLat = 111320.0;
+double s_metersPerDegreeLon = s_metersPerDegreeLat * std::cos(s_refLat * M_PI / 180.0);
 
 // Global variables for drone IPs
 std::vector<Ipv4Address> droneIpAddresses;
@@ -100,40 +113,8 @@ std::vector<Ptr<Socket>> g_droneSockets;
 // MAVLink parser state
 mavlink_status_t mavlink_status;
 
-// Create MAVLink packet using official library
-std::vector<uint8_t> CreateMavlinkPacket(uint8_t target_system, uint8_t target_component,
-                                         float lat, float lon, float alt) {
-    mavlink_message_t msg;
-    uint8_t system_id = 1;   // Drone 0 (sender)
-    uint8_t component_id = 1; // Component ID
-
-    // Initialize mission item structure
-    mavlink_mission_item_t mission_item = {0};
-    mission_item.target_system = target_system;
-    mission_item.target_component = target_component;
-    mission_item.seq = 0;
-    mission_item.frame = MAV_FRAME_GLOBAL_RELATIVE_ALT;
-    mission_item.command = MAV_CMD_NAV_WAYPOINT;
-    mission_item.current = 0;
-    mission_item.autocontinue = 1;
-    mission_item.param1 = 0; // Hold time (seconds)
-    mission_item.param2 = 0; // Acceptance radius (meters)
-    mission_item.param3 = 0; // Pass through waypoint
-    mission_item.param4 = 0; // Yaw angle (NaN for unchanged)
-    mission_item.x = lat;
-    mission_item.y = lon;
-    mission_item.z = alt;
-
-    // Pack the message
-    mavlink_msg_mission_item_encode(system_id, component_id, &msg, &mission_item);
-
-    // Serialize to byte vector
-    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
-    uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
-    return std::vector<uint8_t>(buffer, buffer + len);
-}
-
-// Send waypoint commands directly from Drone0 to other drones
+// Send waypoint commands directly from Drone0 to other drones (drones 1 and 2) and to ZMQ
+// Drone 1 (ardupilot 2nd drone) will have system ID 2 and Drone 2  (ardupilot 3rd drone) will have system ID 3 
 void SendWaypointPairFromDrone0(int pairIndex) {
     Ptr<Node> drone0 = NodeList::GetNode(0);
     Ptr<Socket> socket = Socket::CreateSocket(drone0, UdpSocketFactory::GetTypeId());
@@ -141,41 +122,46 @@ void SendWaypointPairFromDrone0(int pairIndex) {
     
     // Define waypoints
     static const std::vector<std::tuple<float, float, float>> drone1_waypoints = {
-        {50, 60, 30},
-        {10, 30, 30},
-        {60, 10, 30}
+        {50, 60, 30},  // First waypoint will be sent to drone 1 (ardupilot 2nd drone)
+        {10, 30, 30}, // Second waypoint
+        {60, 10, 30}  // Third waypoint
     };
     
     static const std::vector<std::tuple<float, float, float>> drone2_waypoints = {
-        {50, 60, 30},
-        {20, 60, 30},
-        {20, 30, 30}
+        {50, 60, 30}, // First waypoint will be sent to drone 2 (ardupilot 3rd drone)
+        {20, 60, 30}, // Second waypoint
+        {20, 30, 30} // Third waypoint
     };
 
+    // Check if the requested waypoint pair index is valid
     if (pairIndex < 0 || pairIndex >= drone1_waypoints.size()) return;
 
+    // Extract latitude, longitude, altitude for drone 1 and drone 2 from their respective waypoint lists
     auto [lat1, lon1, alt1] = drone1_waypoints[pairIndex];
     auto [lat2, lon2, alt2] = drone2_waypoints[pairIndex];
     
-    std::vector<uint8_t> pkt1 = CreateMavlinkPacket(1, 0, lat1, lon1, alt1);
-    std::vector<uint8_t> pkt2 = CreateMavlinkPacket(2, 0, lat2, lon2, alt2);
+    // Create MAVLink mission packets for drone 1 (sysid=2) and drone 2 (sysid=3) with extracted waypoints  
+    std::vector<uint8_t> pkt1 = CreateMavlinkMissionPacket(2, 0, lat1, lon1, alt1);
+    std::vector<uint8_t> pkt2 = CreateMavlinkMissionPacket(3, 0, lat2, lon2, alt2);
     
+    // Wrap the MAVLink byte vectors into ns-3 Packet objects to send them
     Ptr<Packet> packet1 = Create<Packet>(pkt1.data(), pkt1.size());
     Ptr<Packet> packet2 = Create<Packet>(pkt2.data(), pkt2.size());
     
-    // Send directly to drone IPs
-    socket->SendTo(packet1, 0, InetSocketAddress(droneIpAddresses[1], 20000));
-    socket->SendTo(packet2, 0, InetSocketAddress(droneIpAddresses[2], 20000));
-
+    // Send the waypoint packets directly to drone 1 and drone 2 using their IPs and MAVLink ports
+    socket->SendTo(packet1, 0, InetSocketAddress(droneIpAddresses[1], 20000)); // Drone 1 (ardupilot 2nd drone)
+    socket->SendTo(packet2, 0, InetSocketAddress(droneIpAddresses[2], 20000)); // Drone 2 (ardupilot 3rd drone)
     
+    // Log the sending event with the current simulation time
     NS_LOG_INFO("Drone0 sent waypoint pair " << pairIndex + 1 << " at " 
                 << Simulator::Now().GetSeconds() << "s");
     
-    // Publish commands to ZMQ
+    // Also publish the MAVLink commands to ZMQ to queue them in drone mission plan file for further execution
     if (g_commandPublisher) {
         zmq::message_t zmqMsg1(pkt1.data(), pkt1.size());
         zmq::message_t zmqMsg2(pkt2.data(), pkt2.size());
         
+        // Send both messages: first with 'sndmore' flag, second as final part
         g_commandPublisher->send(zmqMsg1, zmq::send_flags::sndmore);
         g_commandPublisher->send(zmqMsg2, zmq::send_flags::none);
         NS_LOG_INFO("Published commands to ZMQ 5555");
@@ -282,27 +268,37 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data) {
         }
     }
 }
-
 // Modified ZMQ receiver to handle binary data
 void ZmqPositionReceiverThread() {
+    // Create a new ZMQ context for this thread
     zmq::context_t context(1);
+    // Create a ZMQ SUB (subscriber) socket to receive position updates
     zmq::socket_t subscriber(context, ZMQ_SUB);
+    // Connect to the ZMQ publisher at tcp://localhost:5556
     subscriber.connect("tcp://localhost:5556");
+    // Subscribe to all messages 
     subscriber.set(zmq::sockopt::subscribe, "");
     NS_LOG_INFO("ZMQ Position subscriber connected to port 5556");
 
+    // Main loop: keep running while simulation is active
     while (keepRunning.load()) {
         zmq::message_t message;
+        // Try to receive a message (non-blocking)
         if (subscriber.recv(message, zmq::recv_flags::dontwait)) {
+            // Extract raw binary data from the message
             uint8_t* data = static_cast<uint8_t*>(message.data());
             size_t length = message.size();
+            // Convert the raw data to a std::vector<uint8_t> for easier handling
             std::vector<uint8_t> msg_vec(data, data + length);
             {
+                // Lock the position queue and push the new message for processing
                 std::lock_guard<std::mutex> lock(positionMutex);
                 positionQueue.push(msg_vec);
             }
+            // Log the receipt of a position update
             NS_LOG_INFO("ZMQ Position update received (" << length << " bytes)");
         }
+        // Sleep for 10 milliseconds to avoid busy-waiting
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 }
@@ -337,30 +333,6 @@ void PrintDronePositions(NodeContainer nodes, double interval, double simTime) {
     Simulator::Schedule(Seconds(interval), &PrintDronePositions, nodes, interval, simTime);
 }
 
-void PacketReceived(Ptr<const Packet> p, const Address& addr, uint32_t droneId) {
-    InetSocketAddress inetAddr = InetSocketAddress::ConvertFrom(addr);
-    NS_LOG_INFO("Drone " << droneId << " received " << p->GetSize() 
-                << "B packet from " << inetAddr.GetIpv4() << ":" << inetAddr.GetPort());
-    
-    // Attempt to parse as MAVLink message
-    uint8_t buffer[256];
-    uint32_t bytesToCopy = std::min(p->GetSize(), static_cast<uint32_t>(256));
-    p->CopyData(buffer, bytesToCopy);
-    
-    mavlink_message_t msg;
-    mavlink_status_t status;
-    for (uint32_t i = 0; i < bytesToCopy; i++) {
-        if (mavlink_parse_char(MAVLINK_COMM_0, buffer[i], &msg, &status)) {
-            if (msg.msgid == MAVLINK_MSG_ID_GPS_RAW_INT) {
-                mavlink_gps_raw_int_t gps;
-                mavlink_msg_gps_raw_int_decode(&msg, &gps);
-                NS_LOG_INFO("MAVLink GPS_RAW_INT: lat=" << gps.lat/1e7 
-                            << " lon=" << gps.lon/1e7 << " alt=" << gps.alt/1000.0);
-            }
-        }
-    }
-}
-
 void InstallPacketSinks(NodeContainer nodes, std::vector<uint16_t> ports, double simTime) {
     for (uint32_t i = 0; i < nodes.GetN(); ++i) {
         for (uint16_t port : ports) {
@@ -369,13 +341,6 @@ void InstallPacketSinks(NodeContainer nodes, std::vector<uint16_t> ports, double
             ApplicationContainer sinkApp = sink.Install(nodes.Get(i));
             sinkApp.Start(Seconds(0.0));
             sinkApp.Stop(Seconds(simTime));
-
-            Ptr<PacketSink> ps = sinkApp.Get(0)->GetObject<PacketSink>();
-            Callback<void, std::string, Ptr<const Packet>, const Address&> cb =
-                [i](std::string /*context*/, Ptr<const Packet> p, const Address& addr) {
-                    PacketReceived(p, addr, i);
-                };
-            ps->TraceConnect("Rx", "Drone" + std::to_string(i), cb);
         }
     }
 }
@@ -386,12 +351,23 @@ int main(int argc, char *argv[]) {
     double refLat = -35.3633;
     double refLon = 149.165;
     double refAlt = 0.0;
+    std::string outputDir = "ns3-output";  
+    std::string attackType = "none";      // Default Attack type selection (none) 
+    double attackTime = 50.0;             // Attack timing (seconds)
+
 
     CommandLine cmd;
     cmd.AddValue("simTime", "Simulation time in seconds", simTime);
     cmd.AddValue("refLat", "Reference latitude", refLat);
     cmd.AddValue("refLon", "Reference longitude", refLon);
     cmd.AddValue("refAlt", "Reference altitude", refAlt);
+
+    cmd.AddValue("attack", "Attack type: none|ForceDisarm|FlightTermination|ForceRTL|SpeedManipulation|HomePositionHijack|GPSSpoofing|HeartbeatFlood|BatterySpoofing|GhostDroneFlood|QGCLocationSpoofing|MissionInjection", attackType);
+    cmd.AddValue("attackTime", "Attack start time in seconds", attackTime);
+
+    cmd.AddValue("o", "Output directory for PCAP and animation files", outputDir); 
+
+
     cmd.Parse(argc, argv);
 
     s_refLat = refLat;
@@ -405,9 +381,20 @@ int main(int argc, char *argv[]) {
     NS_LOG_INFO("ZMQ command publisher bound to port 5555");
 
     Simulator::SetImplementation(CreateObject<RealtimeSimulatorImpl>());
-
-    // Create only drone nodes
+    // Create drone nodes
     drones.Create(numDrones);
+    // Create attacker node
+    Attacker.Create(1);
+
+
+    // Attacker position at (100, 100, 0)
+    MobilityHelper mobilityStatic;
+    Ptr<ListPositionAllocator> staticPositionAlloc = CreateObject<ListPositionAllocator>();
+    staticPositionAlloc->Add(Vector(100, 100, 0));
+    mobilityStatic.SetPositionAllocator(staticPositionAlloc);
+    mobilityStatic.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    mobilityStatic.Install(Attacker);
+    
 
     // Drones start at (0,0,0)
     MobilityHelper mobilityDrones;
@@ -432,8 +419,12 @@ int main(int argc, char *argv[]) {
     YansWifiPhyHelper wifiPhy;
     YansWifiChannelHelper wifiChannel;
     wifiChannel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
-    wifiChannel.AddPropagationLoss("ns3::LogDistancePropagationLossModel");
+    // Reduce path loss exponent for longer range
+    wifiChannel.AddPropagationLoss("ns3::LogDistancePropagationLossModel", "Exponent", DoubleValue(2.0));
     wifiPhy.SetChannel(wifiChannel.Create());
+    // Increase transmit power for longer range
+    wifiPhy.Set("TxPowerStart", DoubleValue(40.0)); // 40 dBm = 1 Watt
+    wifiPhy.Set("TxPowerEnd", DoubleValue(40.0));
 
     WifiMacHelper wifiMac;
     wifi.SetRemoteStationManager("ns3::AarfWifiManager");
@@ -441,15 +432,24 @@ int main(int argc, char *argv[]) {
     wifiMac.SetType("ns3::AdhocWifiMac", "Ssid", SsidValue(ssid));
 
     NetDeviceContainer droneDevices = wifi.Install(wifiPhy, wifiMac, drones);
+    NetDeviceContainer attackerDevice = wifi.Install(wifiPhy, wifiMac, Attacker);
 
     // Install internet stack
     InternetStackHelper internet;
     internet.Install(drones);
+    internet.Install(Attacker);
 
     // Assign IP addresses
     Ipv4AddressHelper ipv4;
     ipv4.SetBase("10.1.1.0", "255.255.255.0");
     Ipv4InterfaceContainer droneInterfaces = ipv4.Assign(droneDevices);
+
+    Ipv4InterfaceContainer staticIface = ipv4.Assign(attackerDevice);  // same subnet
+    Ipv4Address attackerIp = staticIface.GetAddress(0);
+    Ptr<Socket> attackerSocket = Socket::CreateSocket(Attacker.Get(0), UdpSocketFactory::GetTypeId());
+    attackerSocket->Bind(InetSocketAddress(attackerIp, 5550));
+
+
 
     // Store drone IP addresses
     for (uint32_t i = 0; i < droneInterfaces.GetN(); ++i) {
@@ -469,21 +469,150 @@ int main(int argc, char *argv[]) {
     std::vector<uint16_t> ports = {20000};
     InstallPacketSinks(drones, ports, simTime);
 
-    // Schedule waypoint commands
-    Simulator::Schedule(Seconds(20.0), &SendWaypointPairFromDrone0, 0);
-    Simulator::Schedule(Seconds(30.0), &SendWaypointPairFromDrone0, 1);
-    Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);
+      // Schedule mission commands from Drone0 to other drones (drones 1 and 2)
+      Simulator::Schedule(Seconds(20.0), &SendWaypointPairFromDrone0, 0);
+      Simulator::Schedule(Seconds(30.0), &SendWaypointPairFromDrone0, 1);
+      Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);
+
+
+//------------------------------------------Attack Scheduling (Parameter-Based)----------------------------------------------
+
+    // Schedule attack based on --attack parameter
+    
+    // ForceDisarm: Sends MAV_CMD_COMPONENT_ARM_DISARM with force-disarm magic number -> 21196
+    // to immediately shut down drone motors mid-flight, causing the drone to fall
+    if (attackType == "ForceDisarm") {
+        NS_LOG_INFO("Scheduling Force Disarm attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteForceDisarmAttack, attackerSocket);
+    } 
+    // FlightTermination: Sends MAV_CMD_DO_FLIGHTTERMINATION command to abort flight
+    // and shut down all motors immediately, resulting in total loss of the vehicle
+    else if (attackType == "FlightTermination") {
+        NS_LOG_INFO("Scheduling Flight Termination attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteFlightTerminationAttack, attackerSocket);
+    } 
+    // ForceRTL: Sends SET_MODE command to switch drone to RTL (Return-to-Launch) mode,
+    // forcing the drone to abandon its current mission and return home
+    else if (attackType == "ForceRTL") {
+        NS_LOG_INFO("Scheduling Force RTL attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteForceRTLAttack, attackerSocket);
+    } 
+    // SpeedManipulation: Sends MAV_CMD_DO_CHANGE_SPEED to alter drone speed (slow down to 2 m/s),
+    // disrupting mission timing and coordination between swarm members
+    else if (attackType == "SpeedManipulation") {
+        NS_LOG_INFO("Scheduling Speed Manipulation attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteSpeedManipulationAttack, attackerSocket);
+    } 
+    // HomePositionHijack: Sends MAV_CMD_DO_SET_HOME to change the drone's home position
+    // to attacker's location, so when RTL is triggered, drone flies to attacker instead
+    else if (attackType == "HomePositionHijack") {
+        NS_LOG_INFO("Scheduling Home Position Hijack attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteSetHomeAttack, attackerSocket);
+    } 
+    // GPSSpoofing: Injects fake GPS_RAW_INT packets to corrupt drone's perception of
+    // other drones' positions, disrupting swarm coordination and situational awareness
+    else if (attackType == "GPSSpoofing") {
+        NS_LOG_INFO("Scheduling GPS Spoofing attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &Execute_GPS_RAW_INT_SpoofingAttack, attackerSocket);
+    } 
+    // HeartbeatFlood: Floods network with HEARTBEAT packets from multiple spoofed system IDs,
+    // causing DoS by overwhelming network bandwidth and processing capacity
+    else if (attackType == "HeartbeatFlood") {
+        NS_LOG_INFO("Scheduling Heartbeat Flood (DoS) attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteHeartbeatFloodAttack, attackerSocket);
+    } 
+    // BatterySpoofing: Sends fake BATTERY_STATUS packets showing critical battery level (5%),
+    // tricking QGC into displaying false low-battery warnings and potentially triggering failsafes
+    else if (attackType == "BatterySpoofing") {
+        NS_LOG_INFO("Scheduling Battery Spoofing attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteBatteryPercentageSpoofingAttack, attackerSocket);
+    } 
+    // GhostDroneFlood: Creates fake drones (sysid 4-10) by sending HEARTBEAT, SYS_STATUS,
+    // GPS_RAW_INT, and GLOBAL_POSITION_INT packets, flooding QGC with phantom UAVs
+    else if (attackType == "GhostDroneFlood") {
+        NS_LOG_INFO("Scheduling Ghost Drone Flood attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteSpoofedDroneFloodAttack, attackerSocket);
+    } 
+    // QGCLocationSpoofing: Sends spoofed GLOBAL_POSITION_INT packets to make QGC display
+    // incorrect drone positions on the map (e.g., showing drones in Barcelona instead of actual location)
+    else if (attackType == "QGCLocationSpoofing") {
+        NS_LOG_INFO("Scheduling QGC Location Spoofing attack at " << attackTime << "s");
+        Simulator::Schedule(Seconds(attackTime), &ExecuteSpoofDroneGPSAttack, attackerSocket);
+    } 
+    // MissionInjection: Injects malicious MISSION_ITEM waypoints that appear to come from
+    // the leader drone, hijacking follower drones' navigation to attacker-chosen coordinates
+    else if (attackType == "MissionInjection") {
+        NS_LOG_INFO("Scheduling Mission Injection attack at " << attackTime << "s");
+        for (int i = 0; i < 7; i++) {
+            Simulator::Schedule(Seconds(attackTime + i), &SendWaypointPairFromAttacker, i);
+        }
+    } 
+    else if (attackType != "none") {
+        NS_LOG_WARN("Unknown attack type: " << attackType << ". No attack scheduled.");
+    } 
+    else {
+        NS_LOG_INFO("No attack scheduled (--attack=none)");
+    }
+
+//------------------------------------------Attacks Schedule (Static)----------------------------------------------------------------------
+
+//------------------------------------------Drone SITL Attacks-----------------------------------------------------------------------
+
+   // Schedule force disarm attack at seconds 50.0
+       //Simulator::Schedule(Seconds(50.0), &ExecuteForceDisarmAttack, attackerSocket);
+ 
+    // Schedule flight termination attack at seconds 50.0
+       //Simulator::Schedule(Seconds(50.0), &ExecuteFlightTerminationAttack, attackerSocket);
+
+    // Schedule Force Return Home attack at seconds 100.0
+       //Simulator::Schedule(Seconds(100.0), &ExecuteForceRTLAttack, attackerSocket);
+  // Schedule speed manipulation attack at second 30.0
+       //Simulator::Schedule(Seconds(30.0), &ExecuteSpeedManipulationAttack, attackerSocket);
+   
+    // Schedule Set Home Position Attack at second 50.0
+       //Simulator::Schedule(Seconds(50.0), &ExecuteSetHomeAttack, attackerSocket);
+   
+    //Schedule mission commands injection from Attacker to (drones 1 and 2)
+       //Simulator::Schedule(Seconds(80.0), &SendWaypointPairFromAttacker, 0);
+       //Simulator::Schedule(Seconds(81.0), &SendWaypointPairFromAttacker, 1);
+       //Simulator::Schedule(Seconds(82.0), &SendWaypointPairFromAttacker, 2);
+       //Simulator::Schedule(Seconds(83.0), &SendWaypointPairFromAttacker, 3);
+       //Simulator::Schedule(Seconds(84.0), &SendWaypointPairFromAttacker, 4);
+       //Simulator::Schedule(Seconds(85.0), &SendWaypointPairFromAttacker, 5);
+       //Simulator::Schedule(Seconds(86.0), &SendWaypointPairFromAttacker, 6);
+   
+//------------------------------------------Network Level Attacks----------------------------------------------------------------------
+
+    // Schedule GPS spoofing(GPS_RAW_INT) attack at second 50.0
+       //Simulator::Schedule(Seconds(50.0), &Execute_GPS_RAW_INT_SpoofingAttack, attackerSocket);
+
+    // Schedule DOS Attack at second 50.0
+       //Simulator::Schedule(Seconds(50.0), &ExecuteHeartbeatFloodAttack, attackerSocket);
+
+//------------------------------------------QGC Attacks--------------------------------------------------------------------------------
+    // Schedule Real Drone Battery spoofing attack at second 50.0
+       //Simulator::Schedule(Seconds(50.0), &ExecuteBatteryPercentageSpoofingAttack, attackerSocket);
+
+    // Schedule Real Drone GPS Location spoofing attack at second 50.0
+       //Simulator::Schedule(Seconds(50.0), &ExecuteSpoofDroneGPSAttack, attackerSocket);
+   
+     // Schedule Fake Spoofed Drones Flood Attack at second 50.0
+       //Simulator::Schedule(Seconds(50.0), &ExecuteSpoofedDroneFloodAttack, attackerSocket);
+   
+//---------------------------------------------------------------------------------------------------------------------------
+
+
 
     // Setup output files
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);
     std::ostringstream oss;
-    oss << "/path/to/change/drone-mesh-"  // Change this to where you want to save the PCAP files
+    oss << outputDir << "/multi-drone-mesh-with-Attacker_"
         << std::put_time(&tm, "%Y%m%d_%H%M%S");
     std::string outputPrefix = oss.str();
 
     std::ostringstream animOss;
-    animOss << "/path/to/change/drone-mesh-anim_"  // Change this to where you want to save the anim output file
+    animOss << outputDir << "/multi-drone-mesh-with-Attacker-anim_"
             << std::put_time(&tm, "%Y%m%d_%H%M%S") << ".xml";
     std::string animFile = animOss.str();
 
@@ -499,6 +628,10 @@ int main(int argc, char *argv[]) {
         anim.UpdateNodeDescription(drones.Get(i), "Drone " + std::to_string(i));
         anim.UpdateNodeColor(drones.Get(i), 100, 0, 0);  // Red for all drones
     }
+
+    anim.UpdateNodeSize(Attacker.Get(0)->GetId(), 5, 5);
+    anim.UpdateNodeDescription(Attacker.Get(0), "Attacker");
+    anim.UpdateNodeColor(Attacker.Get(0), 0, 0, 255); // blue for attacker
 
     // Initialize MAVLink parser
     memset(&mavlink_status, 0, sizeof(mavlink_status));
