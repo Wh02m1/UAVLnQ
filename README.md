@@ -86,8 +86,8 @@ UAVLnQ implements attack scenarios for the 3 UAV mesh topology that allow an att
 
 Detailed installation instructions are available in the following guides:
 
-- **[Main Installation Guide](INSTALLATION.md)** - Complete setup for ArduPilot, ns-3, QGroundControl, and UAVLnQ
-- **[Gazebo Installation Guide](INSTALLATION_GAZEBO.md)** - Optional 3D visualization setup
+- **[Main Installation Guide](https://github.com/Wh02m1/UAVLnQ/blob/main/docs/INSTALLATION.md)** - Complete setup for ArduPilot, ns-3, QGroundControl, and UAVLnQ
+- **[Gazebo Installation Guide](https://github.com/Wh02m1/UAVLnQ/blob/main/docs/INSTALLATION_GAZEBO.md)** - Optional 3D visualization setup
 
 ---
 
