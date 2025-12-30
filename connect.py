@@ -10,6 +10,7 @@ import zmq
 import os
 import queue
 import json 
+import shlex  # Added for proper parameter splitting
 
 # ZMQ Setup for position publishing
 context = zmq.Context()
@@ -158,7 +159,7 @@ class DynamicMissionController:
                     print(f"Drone {self.drone_id}: {type(cmd).__name__} completed")
                     # If this was Drone 1's Land, signal mission complete
                     if self.complete_pub and isinstance(cmd, Land):
-                        print("Drone 1: Land done — publishing MISSION_COMPLETE")
+                        print("Drone 1: Land done - publishing MISSION_COMPLETE")
                         self.complete_pub.send_string("MISSION_COMPLETE")
                     self.current_command = None
                 else:
@@ -272,10 +273,13 @@ class DroneCommander:
         print(f"NS-3 binary: {ns3_bin}")
         print(f"NS-3 parameters: {ns3_parameters}")
         
-        self.ns3_process = subprocess.Popen([
-            "xterm", "-hold", "-e",
-            ns3_bin, ns3_parameters
-        ])
+        # Split parameters string into individual arguments using shlex
+        param_list = shlex.split(ns3_parameters)
+        print(f"NS-3 parameter list: {param_list}")
+        
+        self.ns3_process = subprocess.Popen(
+            ["xterm", "-hold", "-e", ns3_bin] + param_list
+        )
 
         print(f"NS-3 PID {self.ns3_process.pid}, started with parameters: {ns3_parameters}")
 
@@ -326,7 +330,7 @@ class DroneCommander:
             try:
                 msg = self.complete_sub.recv_string(zmq.NOBLOCK)
                 if msg == "MISSION_COMPLETE":
-                    print("Commander: Received MISSION_COMPLETE → ordering other drones to RTL+LAND")
+                    print("Commander: Received MISSION_COMPLETE -> ordering other drones to RTL+LAND")
                     for ctrl in self.controllers[1:]:
                         ctrl.add_command(ReturnHome(ctrl.vehicle))
                         ctrl.add_command(Land(ctrl.vehicle))
