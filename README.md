@@ -38,9 +38,16 @@ The framework includes three ns-3 scratch configurations:
 | Script | Parameters | Description |
 |--------|------------|-------------|
 | `3-Leader-Follower-Drone-Mesh` | `--simTime`, `--o` | Fixed 3 drone swarm in WiFi ad-hoc mesh topology |
-| `3-Leader-Follower-Drone-Mesh-with-attacker` | `--simTime`, `--attack`, `--attackTime`, `--o` | Same as first one but with an attacker node and some attack scenarios |
-| `Multi-Leader-Follower-Drone-Mesh` | `--n`, `--simTime`, `--o` | Scalable multiple UAVs swarm with configurable drone count via `--n` parameter |
+| `3-Leader-Follower-Drone-Mesh-with-attacker` | `--simTime`, `--attack`, `--attackTime`, `--o` | Same as above but with an attacker node and attack scenarios |
+| `Multi-Leader-Follower-Drone-Mesh` | `--n`, `--simTime`, `--o` | Scalable multi-UAV swarm with configurable drone count via `--n` parameter |
 
+### Leader-Follower Topology
+
+The leader-follower topology and MAVLink communication architecture is based on the approach described in:
+
+> Adoni, W.Y.H.; Fareedh, J.S.; Lorenz, S.; Gloaguen, R.; Madriz, Y.; Singh, A.; Kühne, T.D. **Intelligent Swarm: Concept, Design and Validation of Self-Organized UAVs Based on Leader–Followers Paradigm for Autonomous Mission Planning.** *Drones* 2024, 8, 575. [https://doi.org/10.3390/drones8100575](https://doi.org/10.3390/drones8100575)
+
+In this topology, the leader drone acts as a gateway broker, relaying MAVLink messages (HEARTBEAT, GPS_RAW_INT, SYS_STATUS, MISSION_ITEM) between the GCS and follower UAVs over a WiFi ad-hoc network using UDP.
 ### Parameters
 
 | Parameter | Description |
