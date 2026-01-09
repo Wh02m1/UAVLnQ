@@ -192,12 +192,8 @@ will add this later
 
 ## Contributing
 
-Contributions are welcome. Please follow these guidelines:
+Contributions are welcome—fork the repo, create a branch, and submit a pull request.
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/new-attack`)
-3. Commit changes with clear messages
-4. Submit a pull request with description of changes
 
 ### Areas for Contribution
 
@@ -206,13 +202,6 @@ Contributions are welcome. Please follow these guidelines:
 - Performance optimizations
 - Documentation improvements
 - IDS integration examples
-
----
-
-## License
-
-will add this later 
-
 ---
 
 
