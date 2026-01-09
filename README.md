@@ -123,8 +123,45 @@ sim_vehicle.py -v ArduCopter -I2 --sysid=3 --console \
     --out=udp:127.0.0.1:14572 \
     --out=udp:127.0.0.1:14573
 ```
+### 2. Configure drones_config.json
 
-### 2. Start UAVLnQ Components
+Edit `drones_config.json` to match your SITL setup:
+```json
+{
+    "Drones_config": [
+        {
+            "id": 1,
+            "dronekit_connection": "udp:127.0.0.1:14551",
+            "mavlink_connection": "udp:127.0.0.1:14552",
+            "mavlink_parser_connection": "udp:127.0.0.1:14553",
+            "qgroundcontrol_port": 14550
+        },
+        {
+            "id": 2,
+            "dronekit_connection": "udp:127.0.0.1:14561",
+            "mavlink_connection": "udp:127.0.0.1:14562",
+            "mavlink_parser_connection": "udp:127.0.0.1:14563",
+            "qgroundcontrol_port": 14560
+        },
+        {
+            "id": 3,
+            "dronekit_connection": "udp:127.0.0.1:14571",
+            "mavlink_connection": "udp:127.0.0.1:14572",
+            "mavlink_parser_connection": "udp:127.0.0.1:14573",
+            "qgroundcontrol_port": 14570
+        }
+    ],
+    "NS3_config": {
+        "ns3_bin": "/Path/To/ns-3-dev/build/scratch/3-Leader-Follower-Drone-Mesh-with-attacker/ns3.44-drone_mesh-default",
+        "parameters": "--o=/Path/To/UAVLnQ/ns3-output --simTime=200 --attack=FlightTermination --attackTime=50"
+    }
+}
+```
+
+> **Note:** Update `ns3_bin` to match the absolute path to your compiled ns-3 simulation binary. The `parameters` field should be adjusted depending on which ns-3 script you are using.
+
+
+### 3. Start UAVLnQ Components
 
 ```bash
 # Terminal 4 - Mission Controller
@@ -138,7 +175,7 @@ source .venv/bin/activate
 python Mavlink-NS3-Parser.py
 ```
 
-### 3. Launch QGroundControl (Optional)
+### 4. Launch QGroundControl (Optional)
 
 ```bash
 ./QGroundControl-x86_64.AppImage
