@@ -8,7 +8,7 @@ The details about the design of the simulator and some preliminary results for s
 @software{uavlnq2025,
   author = {Yousef, Abdelrahman and Tsai, Chinya and Mistry, Nikita Nilesh and Real, Maria Mendez and Gogniat, Guy},
   title = {UAVLnQ: An Architecture for Security Analysis of Cyber-Physical Network Behavior in UAV Swarms},
-  year = {2025},
+  year = {2026},
   url = {Will be updated upon publication}
 }
 ```
