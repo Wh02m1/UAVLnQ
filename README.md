@@ -197,10 +197,10 @@ Contributions are welcome—fork the repo, create a branch, and submit a pull re
 
 ### Areas for Contribution
 
+- New UAV Topology 
 - New attack implementations
 - Additional MAVLink message support
 - Performance optimizations
-- Documentation improvements
 - IDS integration examples
 ---
 
