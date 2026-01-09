@@ -181,31 +181,6 @@ python Mavlink-NS3-Parser.py
 ./QGroundControl-x86_64.AppImage
 ```
 
----
-
-## Usage
-
-### Configuration
-
-Edit `drones_config.json` to configure drone connections and ns-3 parameters:
-
-```json
-{
-  "Drones_config": [
-    {
-      "id": 1,
-      "dronekit_connection": "udp:127.0.0.1:14551",
-      "mavlink_connection": "udp:127.0.0.1:14552",
-      "mavlink_parser_connection": "udp:127.0.0.1:14553",
-      "qgroundcontrol_port": 14550
-    }
-  ],
-  "NS3_config": {
-    "ns3_bin": "/path/to/ns-3-dev/build/scratch/.../ns3.44-drone_mesh-default",
-    "parameters": "--simTime=200 --attack=none --attackTime=50 --o=/path/to/output"
-  }
-}
-```
 
 ---
 
