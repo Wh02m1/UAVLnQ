@@ -6,11 +6,13 @@ The details about the design of the simulator and some preliminary results for s
 
 ```bibtex
 @software{uavlnq2026,
-  author = {Yousef, Abdelrahman and Tsai, Chinya and Mistry, Nikita Nilesh and Real, Maria Mendez and Gogniat, Guy},
-  title = {UAVLnQ: An Architecture for Security Analysis of Cyber-Physical Network Behavior in UAV Swarms},
-  year = {2026},
-  url = {Will be updated upon publication}
+  author    = {Yousef, Abdelrahman and Tsai, Chinya and Mistry, Nikita Nilesh and Real, Maria Mendez and Gogniat, Guy},
+  title     = {UAVLnQ: An Architecture for Security Analysis of Cyber-Physical Network Behavior in UAV Swarms},
+  year      = {2026},
+  booktitle = {DASIP 2026: Workshop on Design and Architectures for Signal and Image Processing},
+  url       = {Will be updated upon publication},
 }
+
 ```
 
 ---
