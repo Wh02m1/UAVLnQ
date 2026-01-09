@@ -1,8 +1,8 @@
 # UAVLnQ (UAV-Network Simulator)
 
-An Architecture for Security Analysis of Cyber-Physical Network Behavior in UAV Swarms, UAVLnQ integrates ArduPilot SITL with ns-3 network simulator using ZeroMQ middleware, providing a testbed for developing and testing Intrusion Detection Systems (IDS) in UAV swarms.
+An Architecture for Security Analysis of Cyber-Physical Network Behavior in UAV Swarms integrates ArduPilot SITL with the ns-3 network simulator using ZeroMQ middleware, providing a testbed for studying UAV behavior and for developing and testing intrusion detection systems (IDS) in UAV swarms.
 
-The details about the design of the simulator and some preliminary results for some use case scenarios are presented in our paper(link). If you find this code useful in your research, please consider citing the paper:
+The details about the design of the simulator and some preliminary results for some use case scenarios are presented in our paper(link will be here). If you find this code useful in your research, please consider citing the paper:
 
 ```bibtex
 @software{uavlnq2026,
