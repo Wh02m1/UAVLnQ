@@ -165,7 +165,7 @@ while True:
             # This is for the attack to inject a MISSION_ITEM into the drone's mission plan
             if msg.get_msgId() == mavutil.mavlink.MAVLINK_MSG_ID_MISSION_ITEM and msg.command == mavutil.mavlink.MAV_CMD_NAV_WAYPOINT:
                 mavlink_system_id = int(msg.target_system)  # This is 1, 2, 3 from ns-3
-                drone_id = mavlink_system_id + 1 
+                drone_id = mavlink_system_id
                 #drone_id = int(msg.target_system)                                                                                                                                                                                  
                 lat = float(msg.x)
                 lon = float(msg.y)
