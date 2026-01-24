@@ -25,9 +25,6 @@ drones = config_file["Drones_config"]
 CONNECTION_STRINGS_Dronekit = [d["dronekit_connection"] for d in drones]
 CONNECTION_STRINGS_Mavlink = [d["mavlink_connection"] for d in drones]
 
-#ns3_bin = "/home/boda/Desktop/ns-3-dev/build/scratch/NS3-Multi-Drone/ns3.44-NS3-Multi-Drone-default"
-#ns3_bin = "/home/boda/Desktop/ns-3-dev/build/scratch/drone-mesh/ns3.44-drone_mesh-default"
-
 # Get NS-3 configuration from JSON
 try:
     ns3_config = config_file["NS3_config"]
