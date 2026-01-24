@@ -182,14 +182,6 @@ python Mavlink-NS3-Parser.py
 ```
 
 
----
-
-## Extending UAVLnQ
-
-will add this later 
-
----
-
 ## Contributing
 
 Contributions are welcome—fork the repo, create a branch, and submit a pull request.
