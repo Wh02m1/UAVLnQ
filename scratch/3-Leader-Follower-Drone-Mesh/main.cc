@@ -157,8 +157,8 @@ void SendWaypointPairFromDrone0(int pairIndex) {
     auto [lat1, lon1, alt1] = drone1_waypoints[pairIndex];
     auto [lat2, lon2, alt2] = drone2_waypoints[pairIndex];
     
-    std::vector<uint8_t> pkt1 = CreateMavlinkPacket(1, 0, lat1, lon1, alt1);
-    std::vector<uint8_t> pkt2 = CreateMavlinkPacket(2, 0, lat2, lon2, alt2);
+    std::vector<uint8_t> pkt1 = CreateMavlinkPacket(2, 0, lat1, lon1, alt1);
+    std::vector<uint8_t> pkt2 = CreateMavlinkPacket(3, 0, lat2, lon2, alt2);
     
     Ptr<Packet> packet1 = Create<Packet>(pkt1.data(), pkt1.size());
     Ptr<Packet> packet2 = Create<Packet>(pkt2.data(), pkt2.size());
