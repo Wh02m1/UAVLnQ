@@ -10,7 +10,7 @@ The details about the design of the simulator and some preliminary results for s
   title     = {UAVLnQ: An Architecture for Security Analysis of Cyber-Physical Network Behavior in UAV Swarms},
   year      = {2026},
   booktitle = {DASIP 2026: Workshop on Design and Architectures for Signal and Image Processing},
-  url       = {Will be updated upon publication},
+  url       = {},
 }
 
 ```
