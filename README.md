@@ -22,15 +22,6 @@ The details about the design of the simulator and some preliminary results for s
 UAVLnQ bridges the gap between UAV simulation and network security research by enabling realistic UAV swarm communication simulation over MAVLink protocol with attack injection capabilities. The framework generates PCAP files containing legitimate MAVLink communication patterns and CSV files containing physical telemetry data, making it ideal for IDS training, security analysis, and cybersecurity research.
 
 ---
-## System Architecture
-
-Overall system architecture Without Attacker:
-
-![Architecture](docs/Architecture.png)
-
-Overall system architecture with Attacker Sending malformed mavlink packets:
-
-![Architecture with Attacker](docs/Architecture_with_attacker.png)
 
 
 ## NS-3 Simulation Scripts
