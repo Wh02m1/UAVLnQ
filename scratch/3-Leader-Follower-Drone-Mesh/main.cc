@@ -157,8 +157,8 @@ void SendWaypointPairFromDrone0(int pairIndex) {
     auto [lat1, lon1, alt1] = drone1_waypoints[pairIndex];
     auto [lat2, lon2, alt2] = drone2_waypoints[pairIndex];
     
-    std::vector<uint8_t> pkt1 = CreateMavlinkPacket(2, 0, lat1, lon1, alt1);
-    std::vector<uint8_t> pkt2 = CreateMavlinkPacket(3, 0, lat2, lon2, alt2);
+    std::vector<uint8_t> pkt1 = CreateMavlinkPacket(1, 0, lat1, lon1, alt1);
+    std::vector<uint8_t> pkt2 = CreateMavlinkPacket(2, 0, lat2, lon2, alt2);
     
     Ptr<Packet> packet1 = Create<Packet>(pkt1.data(), pkt1.size());
     Ptr<Packet> packet2 = Create<Packet>(pkt2.data(), pkt2.size());
@@ -386,12 +386,16 @@ int main(int argc, char *argv[]) {
     double refLat = -35.3633;
     double refLon = 149.165;
     double refAlt = 0.0;
+    std::string outputDir = "ns3-output";
+
 
     CommandLine cmd;
     cmd.AddValue("simTime", "Simulation time in seconds", simTime);
     cmd.AddValue("refLat", "Reference latitude", refLat);
     cmd.AddValue("refLon", "Reference longitude", refLon);
     cmd.AddValue("refAlt", "Reference altitude", refAlt);
+    cmd.AddValue("o", "Output directory for PCAP and animation files", outputDir);
+
     cmd.Parse(argc, argv);
 
     s_refLat = refLat;
@@ -478,12 +482,13 @@ int main(int argc, char *argv[]) {
     auto t = std::time(nullptr);
     auto tm = *std::localtime(&t);
     std::ostringstream oss;
-    oss << "ns3-output/multi-drone-mesh-" // Change this to where you want to save the PCAP files
-        << std::put_time(&tm, "%Y%m%d_%H%M%S");
+    oss << outputDir << "/multi-drone-mesh-"
+    << std::put_time(&tm, "%Y%m%d_%H%M%S");
+
     std::string outputPrefix = oss.str();
 
     std::ostringstream animOss;
-    animOss << "ns3-output/multi-drone-mesh-anim_"  // Change this to where you want to save the anim output 
+    animOss << outputDir << "/multi-drone-mesh-anim_"
             << std::put_time(&tm, "%Y%m%d_%H%M%S") << ".xml";
     std::string animFile = animOss.str();
 
