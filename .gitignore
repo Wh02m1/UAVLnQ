@@ -1,0 +1,22 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+
+# Python compiled files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Logs and Data
+logs/
+*.csv
+
+# NS3 specific output
+ns3-output/
+*.pcap
+*.xml
+
+# System files (if any)
+.DS_Store
