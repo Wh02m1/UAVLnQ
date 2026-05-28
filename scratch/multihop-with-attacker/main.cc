@@ -27,7 +27,7 @@
  *
  * RUN:
  *   NS_LOG="DroneWormholeMesh=info" \
- *   ~/ns-3-dev/build/scratch/multihop-aodv/ns3-dev-multihop-aodv-default \
+ *   ~/ns-3-dev/build/scratch/multihop-with-attacker/ns3-dev-multihop-with-attacker-default \
  *   --nNodes=7 --simTime=50 --o=/home/ubuntu/UAVLnQ/ns3-output/ \
  *   2>&1 | tee /home/ubuntu/UAVLnQ/ns3-output/wh.log
  *
