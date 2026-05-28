@@ -4,36 +4,26 @@
  *
  * Original AODV drone mesh code extended with an out-of-band wormhole attack:
  *   - W1 is placed near Node 0 (leader)
- *   - W2 is placed near Node 6 (last follower)
+ *   - W2 is placed near Node 3 (last follower)
  *   - Both wormhole nodes share the main 802.11a channel so AODV sees them
  *     as legitimate hops, while also being connected via a private P2P tunnel
  *     that makes the W1->W2 path appear artificially short.
  *
  * Network topology (linear chain + wormhole):
  *
- *   [N0]--[N1]--[N2]--[N3]--[N4]--[N5]--[N6]
- *    |                                     |
- *   [W1] ========= P2P tunnel =========  [W2]
+ *   [Node0] -- [Node1] -- [Node2] -- [Node3]
+ *      |                                |
+ *     [W1] ======= P2P tunnel ======= [W2]
  *
  * IP addressing:
  *   Main Wi-Fi channel : 10.1.1.0/24  (all nodes including W1, W2)
  *   P2P wormhole tunnel: 10.1.2.0/24  (W1 and W2 only)
  *
- * Wormhole objective: black-hole attack
- *   W1/W2 poison AODV so N0 routes all traffic via the wormhole tunnel.
- *   The tunnel then drops all UDP data packets while forwarding AODV
- *   control packets (HELLOs/RREPs) so the poisoned route stays alive.
- *   Result: N0 believes delivery is happening but PDR drops to ~0.
+ * RUN IT WITH:  NS_LOG="DroneWormholeMesh=info" ~/ns-3-dev/build/scratch/multihop-with-attacker/ns3-dev-multihop-with-attacker-default --nNodes=7 --simTime=50 --o=/home/ubuntu/UAVLnQ/ns3-output/ 2>&1 | tee /home/ubuntu/UAVLnQ/ns3-output/wh.log
  *
- * RUN:
- *   NS_LOG="DroneWormholeMesh=info" \
- *   ~/ns-3-dev/build/scratch/multihop-with-attacker/ns3-dev-multihop-with-attacker-default \
- *   --nNodes=7 --simTime=50 --o=/home/ubuntu/UAVLnQ/ns3-output/ \
- *   2>&1 | tee /home/ubuntu/UAVLnQ/ns3-output/wh.log
- *
- * Reference:
- *   HLM2022, Wormhole-for-NS3, ver. 1.0, [Source code], 2022.
- *   https://github.com/HLM2022/Wormhole-for-NS3. Accessed: May 26, 2026.
+ * Reference Code: 
+ * HLM2022, Wormhole-for-NS3, ver. 1.0, [Source code], 2022. [Online]. Available: https://github.com/HLM2022/Wormhole-for-NS3. Accessed: May 26, 2026.
+ * 
  */
 
 #include "ns3/core-module.h"
@@ -47,6 +37,8 @@
 #include "ns3/aodv-module.h"
 #include "ns3/flow-monitor-module.h"
 
+// ZMQ / MAVLink headers (keep if building with full drone stack)
+// Comment these out if building standalone without ZMQ/MAVLink
 #include <common/mavlink.h>
 #include <zmq.hpp>
 
@@ -69,67 +61,41 @@ using namespace ns3;
 NS_LOG_COMPONENT_DEFINE("DroneWormholeMesh");
 
 // ---------------------------------------------------------------------------
-// Globals
+// Globals (drone / ZMQ state)
 // ---------------------------------------------------------------------------
 static std::atomic<bool> keepRunning(true);
 std::mutex positionMutex;
 std::queue<std::vector<uint8_t>> positionQueue;
 
-NodeContainer drones;     // normal drone nodes N0…N(nNodes-1)
-NodeContainer p2pNodes;   // wormhole nodes W1, W2
-NodeContainer allNodes;   // drones + p2pNodes
+NodeContainer drones;          // normal drone nodes (nNodes)
+NodeContainer p2pNodes;        // wormhole nodes W1, W2
+NodeContainer allNodes;        // drones + p2pNodes
 
 NetDeviceContainer droneDevices;
 Ipv4InterfaceContainer droneInterfaces;
 std::vector<Ptr<MobilityModel>> droneMobilityModels;
 
 // GPS reference (Canberra)
-static double s_refLat             = -35.3633;
-static double s_refLon             =  149.165;
-static double s_refAlt             =    0.0;
+static double s_refLat            =  -35.3633;
+static double s_refLon            =  149.165;
+static double s_refAlt            =    0.0;
 static double s_metersPerDegreeLat = 111320.0;
 static double s_metersPerDegreeLon = s_metersPerDegreeLat *
                                      std::cos(s_refLat * M_PI / 180.0);
 
-std::vector<Ipv4Address>          droneIpAddresses;
-zmq::context_t                    g_zmqContext(1);
-zmq::socket_t*                    g_commandPublisher = nullptr;
-std::vector<Ptr<Socket>>          g_droneSockets;
+std::vector<Ipv4Address>   droneIpAddresses;
+zmq::context_t             g_zmqContext(1);
+zmq::socket_t*             g_commandPublisher = nullptr;
+std::vector<Ptr<Socket>>   g_droneSockets;
 std::map<uint8_t, mavlink_status_t> mavlink_status_map;
 
-// Black-hole drop counter (packets dropped by wormhole tunnel)
-static uint32_t g_droppedByWormhole = 0;
-
 // ---------------------------------------------------------------------------
-// Wormhole P2P receive filter — black-hole attack
-//
-// Forwards AODV control packets (<=100 bytes, UDP port 654) so the poisoned
-// route stays alive in every node's table.  Drops all larger UDP data packets
-// so actual payload never reaches the destination.
-// ---------------------------------------------------------------------------
-static bool WormholeRxFilter(Ptr<NetDevice>       dev,
-                              Ptr<const Packet>    pkt,
-                              uint16_t             /*protocol*/,
-                              const Address&       /*src*/)
-{
-    if (pkt->GetSize() > 100)
-    {
-        g_droppedByWormhole++;
-        NS_LOG_INFO("Wormhole black-hole: dropped data packet #"
-                    << g_droppedByWormhole
-                    << "  size=" << pkt->GetSize()
-                    << "  node=" << dev->GetNode()->GetId());
-        return false;   // drop
-    }
-    // Small packet → AODV control — forward so route stays poisoned
-    return true;
-}
-
-// ---------------------------------------------------------------------------
-// MAVLink packet builder
+// MAVLink helpers (unchanged from original)
 // ---------------------------------------------------------------------------
 std::vector<uint8_t> CreateMavlinkPacket(
-    uint8_t system_id, uint8_t target_system, uint8_t target_component,
+    uint8_t system_id,
+    uint8_t target_system,
+    uint8_t target_component,
     float lat, float lon, float alt)
 {
     mavlink_message_t msg;
@@ -147,13 +113,13 @@ std::vector<uint8_t> CreateMavlinkPacket(
 
     mavlink_msg_mission_item_encode(system_id, component_id, &msg, &mi);
 
-    uint8_t  buffer[MAVLINK_MAX_PACKET_LEN];
+    uint8_t buffer[MAVLINK_MAX_PACKET_LEN];
     uint16_t len = mavlink_msg_to_send_buffer(buffer, &msg);
     return std::vector<uint8_t>(buffer, buffer + len);
 }
 
 // ---------------------------------------------------------------------------
-// Waypoint dispatch  (leader N0 -> followers via AODV mesh)
+// Waypoint dispatch (leader -> followers via AODV mesh)
 // ---------------------------------------------------------------------------
 void SendWaypointPairFromDrone0(int pairIndex)
 {
@@ -182,16 +148,17 @@ void SendWaypointPairFromDrone0(int pairIndex)
         if (pairIndex >= (int)follower_waypoints[idx].size()) continue;
 
         auto [x, y, z] = follower_waypoints[idx][pairIndex];
+        uint8_t target_system = follower + 1;
 
         std::vector<uint8_t> pkt =
-            CreateMavlinkPacket(1, (uint8_t)(follower + 1), 0, x, y, z);
+            CreateMavlinkPacket(1, target_system, 0, x, y, z);
 
         Ptr<Packet> packet = Create<Packet>(pkt.data(), pkt.size());
         InetSocketAddress dest(droneIpAddresses[follower], 20000);
         g_droneSockets[0]->SendTo(packet, 0, dest);
 
         NS_LOG_INFO("Leader sent waypoint pair " << pairIndex
-                    << " to drone " << follower);
+                    << " to drone " << follower << " via AODV mesh");
     }
 }
 
@@ -208,8 +175,8 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data)
         return;
     }
 
-    mavlink_message_t  msg;
-    mavlink_status_t*  status = &mavlink_status_map[droneId];
+    mavlink_message_t msg;
+    mavlink_status_t* status = &mavlink_status_map[droneId];
 
     for (size_t i = 2; i < data.size(); i++)
     {
@@ -221,20 +188,42 @@ void ProcessMavlinkMessage(const std::vector<uint8_t>& data)
             mavlink_gps_raw_int_t gps;
             mavlink_msg_gps_raw_int_decode(&msg, &gps);
 
-            double x = (gps.lon / 1e7 - s_refLon) * s_metersPerDegreeLon;
-            double y = (gps.lat / 1e7 - s_refLat) * s_metersPerDegreeLat;
-            double z =  gps.alt / 1000.0 - s_refAlt;
+            double lat = gps.lat / 1e7;
+            double lon = gps.lon / 1e7;
+            double alt = gps.alt / 1000.0;
+
+            double x = (lon - s_refLon) * s_metersPerDegreeLon;
+            double y = (lat - s_refLat) * s_metersPerDegreeLat;
+            double z = alt - s_refAlt;
 
             if (droneId < droneMobilityModels.size() &&
                 droneMobilityModels[droneId])
+            {
                 droneMobilityModels[droneId]->SetPosition(Vector(x, y, z));
+            }
+        }
+        else if (msg.msgid == MAVLINK_MSG_ID_SYS_STATUS)
+        {
+            mavlink_sys_status_t sys;
+            mavlink_msg_sys_status_decode(&msg, &sys);
+        }
+        else if (msg.msgid == MAVLINK_MSG_ID_HEARTBEAT)
+        {
+            mavlink_heartbeat_t hb;
+            mavlink_msg_heartbeat_decode(&msg, &hb);
         }
         else if (msg.msgid == MAVLINK_MSG_ID_MISSION_ITEM)
+        {
             NS_LOG_INFO("Mission item received by node " << (int)droneId);
+        }
         else if (msg.msgid == MAVLINK_MSG_ID_COMMAND_LONG)
-            NS_LOG_INFO("Command received by node "      << (int)droneId);
+        {
+            NS_LOG_INFO("Command received by node " << (int)droneId);
+        }
         else if (msg.msgid == MAVLINK_MSG_ID_SET_MODE)
-            NS_LOG_INFO("Mode change received by node "  << (int)droneId);
+        {
+            NS_LOG_INFO("Mode change received by node " << (int)droneId);
+        }
     }
 }
 
@@ -246,14 +235,15 @@ void ZmqPositionReceiverThread()
     zmq::socket_t subscriber(g_zmqContext, ZMQ_SUB);
     subscriber.connect("tcp://localhost:5556");
     subscriber.set(zmq::sockopt::subscribe, "");
-    subscriber.set(zmq::sockopt::rcvtimeo, 100); // 100ms timeout
+
     NS_LOG_INFO("ZMQ subscriber connected to port 5556");
 
     const size_t MAX_QUEUE_SIZE = 1000;
+
     while (keepRunning.load())
     {
         zmq::message_t message;
-        if (subscriber.recv(message, zmq::recv_flags::none))
+        if (subscriber.recv(message, zmq::recv_flags::dontwait))
         {
             uint8_t* data   = static_cast<uint8_t*>(message.data());
             size_t   length = message.size();
@@ -266,7 +256,7 @@ void ZmqPositionReceiverThread()
                     positionQueue.push(std::move(msg_vec));
             }
         }
-        // If recv timed out or failed, loop back and check keepRunning
+        std::this_thread::sleep_for(std::chrono::milliseconds(2));
     }
 }
 
@@ -297,9 +287,9 @@ void PrintDronePositions(NodeContainer nodes, double interval, double simTime)
         if (mob) {
             Vector pos = mob->GetPosition();
             std::cout << "Time " << now.GetSeconds()
-                      << "s  Node " << i
-                      << "  pos=(" << pos.x << ", " << pos.y
-                      << ", " << pos.z << ")\n";
+                      << "s, Node " << i
+                      << " Position: (" << pos.x << ", "
+                      << pos.y << ", " << pos.z << ")\n";
         }
     }
     Simulator::Schedule(Seconds(interval),
@@ -308,15 +298,17 @@ void PrintDronePositions(NodeContainer nodes, double interval, double simTime)
 
 void PacketReceived(Ptr<const Packet> p, const Address& addr, uint32_t nodeId)
 {
-    InetSocketAddress inet = InetSocketAddress::ConvertFrom(addr);
-    NS_LOG_INFO("Node " << nodeId << " received packet from "
-                << inet.GetIpv4() << " size=" << p->GetSize());
+    InetSocketAddress inetAddr = InetSocketAddress::ConvertFrom(addr);
+    NS_LOG_INFO("Node " << nodeId
+                << " received MANET packet from " << inetAddr.GetIpv4()
+                << " size=" << p->GetSize());
 
     std::vector<uint8_t> buffer(p->GetSize());
     p->CopyData(buffer.data(), buffer.size());
 
     mavlink_message_t msg;
     mavlink_status_t  status;
+
     for (size_t i = 0; i < buffer.size(); i++)
     {
         if (mavlink_parse_char(MAVLINK_COMM_0, buffer[i], &msg, &status))
@@ -325,9 +317,11 @@ void PacketReceived(Ptr<const Packet> p, const Address& addr, uint32_t nodeId)
             {
                 mavlink_mission_item_t mission;
                 mavlink_msg_mission_item_decode(&msg, &mission);
-                NS_LOG_INFO("Node " << nodeId << " waypoint: "
-                            << mission.x << ", " << mission.y
-                            << ", " << mission.z);
+                NS_LOG_INFO("Node " << nodeId
+                            << " received waypoint: "
+                            << mission.x << ", "
+                            << mission.y << ", "
+                            << mission.z);
             }
         }
     }
@@ -338,6 +332,7 @@ void InstallPacketSinks(NodeContainer nodes,
                         double simTime)
 {
     for (uint32_t i = 0; i < nodes.GetN(); ++i)
+    {
         for (uint16_t port : ports)
         {
             PacketSinkHelper sink("ns3::UdpSocketFactory",
@@ -353,50 +348,7 @@ void InstallPacketSinks(NodeContainer nodes,
                 };
             ps->TraceConnect("Rx", "Node" + std::to_string(i), cb);
         }
-}
-
-void SetupWormholeAttack(NodeContainer wormholes,
-                         Ipv4InterfaceContainer tunnelIf)
-{
-    Ptr<Node> w1 = wormholes.Get(0);
-    Ptr<Node> w2 = wormholes.Get(1);
-
-    Ipv4Address w2TunnelIp = tunnelIf.GetAddress(1);
-
-    Ptr<Socket> sockW1 = Socket::CreateSocket(w1, UdpSocketFactory::GetTypeId());
-    Ptr<Socket> sockW2 = Socket::CreateSocket(w2, UdpSocketFactory::GetTypeId());
-
-    sockW1->Bind();
-    sockW2->Bind();
-
-    //CORE WORMHOLE BEHAVIOR
-    sockW1->SetRecvCallback(
-        [sockW2, w2TunnelIp](Ptr<Socket> socket)
-        {
-            Ptr<Packet> packet;
-            Address from;
-
-            while ((packet = socket->RecvFrom(from)))
-            {
-                // forward immediately over tunnel
-                sockW2->Send(packet);
-            }
-        }
-    );
-
-    sockW2->SetRecvCallback(
-        [](Ptr<Socket> socket)
-        {
-            Ptr<Packet> packet;
-            Address from;
-
-            while ((packet = socket->RecvFrom(from)))
-            {
-                // reinject into network domain (illusion step)
-                // this is where AODV "sees" wrong topology effects
-            }
-        }
-    );
+    }
 }
 
 // ===========================================================================
@@ -407,56 +359,68 @@ int main(int argc, char *argv[])
     LogComponentEnable("DroneWormholeMesh", LOG_LEVEL_INFO);
 
     // -----------------------------------------------------------------------
-    // 0. Parameters
+    // 0. Simulation parameters
     // -----------------------------------------------------------------------
-    uint32_t    nNodes    = 7;
-    double      simTime   = 50.0;
+    uint32_t nNodes   = 7;     // normal drone nodes (N0 \u2026 N(nNodes-1))
+    double   simTime  = 50.0;
     std::string outputDir = "/home/ubuntu/UAVLnQ/ns3-output";
 
+    // Wormhole node positions (scenario 2: within range of N0 and N(nNodes-1))
+    double W1X = -10.0,  W1Y = -30.0;   // near Node 0  (x=0)
+    double W2X =  0.0,   W2Y = -30.0;   // updated in main after nNodes parsed
+
     CommandLine cmd;
-    cmd.AddValue("nNodes",   "Number of normal drone nodes", nNodes);
-    cmd.AddValue("simTime",  "Simulation time (s)",          simTime);
-    cmd.AddValue("o",        "Output directory",             outputDir);
+    cmd.AddValue("nNodes",  "Number of normal drone nodes", nNodes);
+    cmd.AddValue("simTime", "Simulation time (s)",          simTime);
+    cmd.AddValue("o",       "Output directory",             outputDir);
     cmd.Parse(argc, argv);
 
-    // Wormhole node positions — W1 near N0 (x=0), W2 near N(nNodes-1)
-    double W1X = -10.0, W1Y = -30.0;
-    double W2X = (nNodes - 1) * 80.0 + 10.0, W2Y = -30.0;
+    // Now that nNodes is known, place W2 next to the last normal node
+    W2X = (nNodes - 1) * 80.0 + 10.0;
 
     // -----------------------------------------------------------------------
     // 1. Create nodes
+    //    drones   : N0 \u2026 N(nNodes-1)  \u2014 normal mesh nodes
+    //    p2pNodes : W1, W2            \u2014 wormhole nodes
+    //    allNodes : drones + p2pNodes \u2014 everything (for stack install)
     // -----------------------------------------------------------------------
-    NS_LOG_INFO("Creating " << nNodes << " drone nodes + 2 wormhole nodes");
+    NS_LOG_INFO("Creating nodes: " << nNodes << " drones + 2 wormhole nodes");
 
     drones.Create(nNodes);
-    p2pNodes.Create(2);       // W1, W2 — created before stack install
+
+    // Wormhole nodes \u2014 created BEFORE stack install so AODV covers them
+    p2pNodes.Create(2);
+
     allNodes.Add(drones);
     allNodes.Add(p2pNodes);
 
     // -----------------------------------------------------------------------
     // 2. Mobility
+    //    Normal nodes: linear chain, 80 m spacing, z=20 m
+    //    Wormhole nodes: near N0 and N(nNodes-1), below the chain
     // -----------------------------------------------------------------------
     MobilityHelper mobility;
     Ptr<ListPositionAllocator> pos = CreateObject<ListPositionAllocator>();
 
+    // Normal drone positions
     for (uint32_t i = 0; i < nNodes; i++)
-        pos->Add(Vector(i * 80.0, 0.0, 20.0));   // linear chain
+        pos->Add(Vector(i * 80.0, 0.0, 20.0));
 
-    pos->Add(Vector(W1X, W1Y, 20.0));             // W1
-    pos->Add(Vector(W2X, W2Y, 20.0));             // W2
+    // Wormhole node positions
+    pos->Add(Vector(W1X, W1Y, 20.0));   // W1
+    pos->Add(Vector(W2X, W2Y, 20.0));   // W2
 
     mobility.SetPositionAllocator(pos);
     mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
     mobility.Install(allNodes);
 
+    // Cache mobility model pointers for ZMQ GPS updates
     for (uint32_t i = 0; i < allNodes.GetN(); ++i)
         droneMobilityModels.push_back(
             allNodes.Get(i)->GetObject<MobilityModel>());
 
     // -----------------------------------------------------------------------
-    // 3a. Main 802.11a channel — shared by all nodes including W1/W2
-    //     This is what makes W1/W2 invisible to AODV (they look like
-    //     normal mesh participants)
+    // 3a. Main 802.11a channel  (all nodes share this \u2014 wormhole is invisible)
     // -----------------------------------------------------------------------
     YansWifiChannelHelper channel;
     channel.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
@@ -475,17 +439,19 @@ int main(int argc, char *argv[])
         "DataMode",    StringValue("OfdmRate6Mbps"),
         "ControlMode", StringValue("OfdmRate6Mbps"));
 
+    // Install main Wi-Fi on ALL nodes (drones + wormhole nodes)
+    // This is what makes the wormhole nodes appear as normal AODV hops
     NetDeviceContainer devices = wifi.Install(phy, mac, allNodes);
 
     // -----------------------------------------------------------------------
-    // 3b. Second private channel — wormhole nodes only
-    //     Out-of-band link that lets W1 hear W2 across the whole chain
+    // 3b. Second 802.11a channel  (wormhole nodes only \u2014 private channel)
+    //     This mimics the out-of-band link that makes W1 and W2 appear close
     // -----------------------------------------------------------------------
     YansWifiChannelHelper channel2;
     channel2.SetPropagationDelay("ns3::ConstantSpeedPropagationDelayModel");
     channel2.AddPropagationLoss("ns3::TwoRayGroundPropagationLossModel",
-        "SystemLoss",   DoubleValue(1.0),
-        "HeightAboveZ", DoubleValue(1.5));
+        "SystemLoss",    DoubleValue(1.0),
+        "HeightAboveZ",  DoubleValue(1.5));
 
     YansWifiPhyHelper phy2;
     phy2.SetChannel(channel2.Create());
@@ -499,23 +465,20 @@ int main(int argc, char *argv[])
         "DataMode",    StringValue("OfdmRate6Mbps"),
         "ControlMode", StringValue("OfdmRate6Mbps"));
 
+    // Second Wi-Fi interface installed only on the two wormhole nodes
     NetDeviceContainer wormholeWifiDevices = wifi2.Install(phy2, mac2, p2pNodes);
 
     // -----------------------------------------------------------------------
-    // 3c. P2P tunnel between W1 and W2 — the actual wormhole link
+    // 3c. Point-to-point tunnel between W1 and W2  (the actual wormhole)
     // -----------------------------------------------------------------------
     PointToPointHelper p2p;
     p2p.SetDeviceAttribute ("DataRate", StringValue("5Mbps"));
     p2p.SetChannelAttribute("Delay",    StringValue("2ms"));
 
     NetDeviceContainer p2pDevices = p2p.Install(p2pNodes);
-    
-    // Install black-hole filter on both ends of the tunnel
-    //for (uint32_t i = 0; i < p2pDevices.GetN(); i++)
-      //  p2pDevices.Get(i)->SetReceiveCallback(MakeCallback(&WormholeRxFilter));
 
     // -----------------------------------------------------------------------
-    // 4. Internet stack + AODV on every node
+    // 4. Internet stack with AODV on every node
     // -----------------------------------------------------------------------
     AodvHelper aodv;
 
@@ -523,39 +486,33 @@ int main(int argc, char *argv[])
     stack.SetRoutingHelper(aodv);
     stack.Install(allNodes);
 
-    Ptr<Node> w1 = p2pNodes.Get(0);
-    Ptr<Node> w2 = p2pNodes.Get(1);
-
-    // Flow monitor installed right after the stack so it captures
-    // all traffic from t=0, including AODV route discovery
-    FlowMonitorHelper      flowmon;
-    Ptr<FlowMonitor>       monitor = flowmon.InstallAll();
-
     // -----------------------------------------------------------------------
     // 5. IP addressing
-    //    10.1.1.0/24 — main Wi-Fi (all nodes)
-    //    10.1.2.0/24 — P2P tunnel (W1 <-> W2)
+    //    10.1.1.0/24 \u2014 main Wi-Fi (all allNodes devices)
+    //    10.1.2.0/24 \u2014 P2P tunnel (W1 <-> W2 only)
     // -----------------------------------------------------------------------
     Ipv4AddressHelper ipv4;
 
+    // Main subnet \u2014 assign to devices in the same order as allNodes
     ipv4.SetBase("10.1.1.0", "255.255.255.0");
     Ipv4InterfaceContainer allInterfaces = ipv4.Assign(devices);
 
+    // Slice out the normal drone interface addresses
     for (uint32_t i = 0; i < nNodes; i++)
         droneIpAddresses.push_back(allInterfaces.GetAddress(i));
 
+    // P2P subnet
     ipv4.SetBase("10.1.2.0", "255.255.255.0");
     Ipv4InterfaceContainer p2pInterfaces = ipv4.Assign(p2pDevices);
-    
+
     NS_LOG_INFO("W1 main IP : " << allInterfaces.GetAddress(nNodes));
     NS_LOG_INFO("W2 main IP : " << allInterfaces.GetAddress(nNodes + 1));
     NS_LOG_INFO("W1 P2P  IP : " << p2pInterfaces.GetAddress(0));
     NS_LOG_INFO("W2 P2P  IP : " << p2pInterfaces.GetAddress(1));
-    SetupWormholeAttack(p2pNodes, p2pInterfaces);
+
     // -----------------------------------------------------------------------
-    // 6. UDP traffic  N0 (leader) -> N6 (last drone)
-    //    AODV will prefer the wormhole route (3 hops) over the legitimate
-    //    6-hop chain, so all data flows into the black hole
+    // 6. UDP traffic: Node 0 (leader) -> Node (nNodes-1) via AODV
+    //    AODV will route through the wormhole if it looks like a shorter path
     // -----------------------------------------------------------------------
     uint16_t port = 9;
 
@@ -569,49 +526,44 @@ int main(int argc, char *argv[])
         InetSocketAddress(droneIpAddresses[nNodes - 1], port));
     app.SetAttribute("DataRate",   StringValue("1kbps"));
     app.SetAttribute("PacketSize", UintegerValue(64));
-    app.SetAttribute("OnTime",
-        StringValue("ns3::ConstantRandomVariable[Constant=1]"));
-    app.SetAttribute("OffTime",
-        StringValue("ns3::ConstantRandomVariable[Constant=0]"));
+    app.SetAttribute("OnTime",  StringValue("ns3::ConstantRandomVariable[Constant=1]"));
+    app.SetAttribute("OffTime", StringValue("ns3::ConstantRandomVariable[Constant=0]"));
 
     ApplicationContainer srcApp = app.Install(drones.Get(0));
     srcApp.Start(Seconds(1.0));
     srcApp.Stop(Seconds(simTime));
 
     // -----------------------------------------------------------------------
-    // 7. Waypoint dispatches from leader at t=20, 30, 40 s
+    // 7. Scheduled waypoint dispatches (t=20, 30, 40 s)
     // -----------------------------------------------------------------------
     Simulator::Schedule(Seconds(20.0), &SendWaypointPairFromDrone0, 0);
     Simulator::Schedule(Seconds(30.0), &SendWaypointPairFromDrone0, 1);
     Simulator::Schedule(Seconds(40.0), &SendWaypointPairFromDrone0, 2);
 
     // -----------------------------------------------------------------------
-    // 8. Position reporting + ZMQ queue
+    // 8. Position reporting and ZMQ position queue
     // -----------------------------------------------------------------------
-    Simulator::Schedule(Seconds(0.0),  &PrintDronePositions,
-                        allNodes, 5.0, simTime);
+    Simulator::Schedule(Seconds(0.0),  &PrintDronePositions, allNodes, 5.0, simTime);
     Simulator::Schedule(Seconds(0.01), &UpdatePositionsFromQueue);
 
     // -----------------------------------------------------------------------
-    // 9. Output files
+    // 9. PCAP + routing table dumps
     // -----------------------------------------------------------------------
-    auto  t_now = std::time(nullptr);
-    auto  tm    = *std::localtime(&t_now);
+    auto t  = std::time(nullptr);
+    auto tm = *std::localtime(&t);
     std::ostringstream oss;
     oss << outputDir << "/wormhole-aodv-"
         << std::put_time(&tm, "%Y%m%d_%H%M%S");
     std::string prefix = oss.str();
 
-    // PCAP on every main-channel node + both P2P tunnel ends
     phy.EnablePcapAll(prefix + "-main");
     p2p.EnablePcap(prefix + "-wormhole-W1", p2pDevices.Get(0));
     p2p.EnablePcap(prefix + "-wormhole-W2", p2pDevices.Get(1));
 
-    // Routing table snapshots at t=0.5, 2.5, 25 s
     Ptr<OutputStreamWrapper> routingStream =
         Create<OutputStreamWrapper>(prefix + "-routing.txt", std::ios::out);
-    aodv.PrintRoutingTableAllAt(Seconds(0.5),  routingStream);
-    aodv.PrintRoutingTableAllAt(Seconds(2.5),  routingStream);
+    aodv.PrintRoutingTableAllAt(Seconds(0.5), routingStream);
+    aodv.PrintRoutingTableAllAt(Seconds(2.5), routingStream);
     aodv.PrintRoutingTableAllAt(Seconds(25.0), routingStream);
 
     // -----------------------------------------------------------------------
@@ -622,41 +574,62 @@ int main(int argc, char *argv[])
     for (uint32_t i = 0; i < nNodes; i++)
     {
         anim.UpdateNodeDescription(drones.Get(i), "N" + std::to_string(i));
-        anim.UpdateNodeColor(drones.Get(i), 0, 200, 0);
+        anim.UpdateNodeColor(drones.Get(i), 0, 200, 0);   // green
         anim.UpdateNodeSize(i, 5.0, 5.0);
     }
     anim.UpdateNodeDescription(p2pNodes.Get(0), "W1");
     anim.UpdateNodeDescription(p2pNodes.Get(1), "W2");
-    anim.UpdateNodeColor(p2pNodes.Get(0), 0, 0, 255);
+    anim.UpdateNodeColor(p2pNodes.Get(0), 0, 0, 255);     // blue
     anim.UpdateNodeColor(p2pNodes.Get(1), 0, 0, 255);
     anim.UpdateNodeSize(nNodes,     5.0, 5.0);
     anim.UpdateNodeSize(nNodes + 1, 5.0, 5.0);
     anim.EnablePacketMetadata(true);
 
     // -----------------------------------------------------------------------
-    // 11. Run
+    // 11. Flow monitor
+    // -----------------------------------------------------------------------
+    FlowMonitorHelper flowmon;
+    Ptr<FlowMonitor> monitor = flowmon.InstallAll();
+
+    // -----------------------------------------------------------------------
+    // 12. Start ZMQ thread and run simulation
     // -----------------------------------------------------------------------
     std::thread zmqThread(ZmqPositionReceiverThread);
 
-    NS_LOG_INFO("Starting simulation  simTime=" << simTime << "s");
+    NS_LOG_INFO("Starting simulation (simTime=" << simTime << "s)");
     Simulator::Stop(Seconds(simTime));
     Simulator::Run();
 
     // -----------------------------------------------------------------------
-    // 12. Results
+    // 13. Post-simulation: flow statistics
     // -----------------------------------------------------------------------
     keepRunning.store(false);
-    if (zmqThread.joinable()) zmqThread.detach();
+    zmqThread.join();
 
-    // Serialize all flow statistics to XML for analysis
     monitor->CheckForLostPackets();
-    monitor->SerializeToXmlFile(prefix + "-flowmon.xml", true, true);
 
-    std::cout << "\nFlow monitor saved to: " << prefix << "-flowmon.xml\n";
-    std::cout << "Packets black-holed by wormhole: "
-              << g_droppedByWormhole << "\n";
+    Ptr<Ipv4FlowClassifier> classifier =
+        DynamicCast<Ipv4FlowClassifier>(flowmon.GetClassifier());
+    auto stats = monitor->GetFlowStats();
+
+    std::cout << "\n===== WORMHOLE + AODV RESULTS =====\n";
+    for (auto& flow : stats)
+    {
+        Ipv4FlowClassifier::FiveTuple ft = classifier->FindFlow(flow.first);
+        double pdr = (flow.second.txPackets > 0)
+                     ? (double)flow.second.rxPackets / flow.second.txPackets
+                     : 0.0;
+
+        std::cout << "Flow " << flow.first
+                  << "  " << ft.sourceAddress
+                  << " -> " << ft.destinationAddress << "\n"
+                  << "  TX="   << flow.second.txPackets
+                  << "  RX="   << flow.second.rxPackets
+                  << "  LOST=" << flow.second.lostPackets
+                  << "  PDR="  << pdr
+                  << "\n\n";
+    }
 
     Simulator::Destroy();
     return 0;
 }
-
