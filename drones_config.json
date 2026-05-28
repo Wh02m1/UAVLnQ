@@ -19,10 +19,17 @@
             "mavlink_connection": "udp:127.0.0.1:14572",
             "mavlink_parser_connection": "udp:127.0.0.1:14573",
             "qgroundcontrol_port": 14570
-        }
+        },
+	{
+           "id": 4,
+            "dronekit_connection": "udp:127.0.0.1:14581",
+            "mavlink_connection": "udp:127.0.0.1:14582",
+            "mavlink_parser_connection": "udp:127.0.0.1:14583",
+            "qgroundcontrol_port": 14580
+         }
     ],
     "NS3_config": {
-        "ns3_bin": "/Path/To/ns-3-dev/build/scratch/3-Leader-Follower-Drone-Mesh-with-attacker/ns3.44-drone_mesh-default",
-        "parameters": "--o=/Path/To/UAVLnQ/ns3-output --simTime=200 --attack=FlightTermination --attackTime=50"
+        "ns3_bin": "/home/ubuntu/ns-3-dev/build/scratch/multihop-aodv/ns3-dev-multihop-aodv-default",
+        "parameters": "--o=/home/ubuntu/UAVLnQ/ns3-output --nNodes=4 --simTime=100"
     }
 }
