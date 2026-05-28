@@ -9,10 +9,6 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Logs and Data
-logs/
-*.csv
-
 # NS3 specific output
 ns3-output/
 *.pcap
