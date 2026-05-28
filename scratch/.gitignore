@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+logs/
+ns3-output/
+*.pcap
