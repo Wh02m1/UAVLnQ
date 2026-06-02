@@ -5,11 +5,12 @@ An Architecture for Security Analysis of Cyber-Physical Network Behavior in UAV 
 The details about the design of the simulator and some preliminary results for some use case scenarios are presented in our paper(link will be here). If you find this code useful in your research, please consider citing the paper:
 
 ```bibtex
-@software{uavlnq2026,
+@inproceedings{uavlnq2026,
   author    = {Yousef, Abdelrahman and Tsai, Chinya and Mistry, Nikita Nilesh and Real, Maria Mendez and Gogniat, Guy},
-  title     = {UAVLnQ: An Architecture for Security Analysis of Cyber-Physical Network Behavior in UAV Swarms},
+  title     = {{UAVLnQ}: An Architecture for Security Analysis of Cyber-Physical Network Behavior in {UAV} Swarms},
+  booktitle = {Proceedings of the Workshop on Design and Architectures for Signal and Image Processing (DASIP 2026)},
   year      = {2026},
-  booktitle = {DASIP 2026: Workshop on Design and Architectures for Signal and Image Processing},
+  doi       = {10.1007/978-3-032-23871-9_15},
   url       = {https://link.springer.com/chapter/10.1007/978-3-032-23871-9_15},
 }
 
